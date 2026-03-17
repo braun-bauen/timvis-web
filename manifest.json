@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Twitter Timeout",
+  "version": "0.1.0",
+  "description": "Limits time spent on x.com per hour.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://x.com/*", "https://*.x.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://*.x.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Twitter Timeout",
+    "default_popup": "popup.html"
+  }
+}
