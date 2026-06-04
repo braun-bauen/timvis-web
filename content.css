@@ -1,0 +1,20 @@
+#tt-dialog {
+  --tt-background: #363636;
+  text-align: center;
+  color: #ffffff;
+  background-color: var(--tt-background);
+  border-color: var(--tt-background);
+  border-radius: 1rem;
+  color: #ffffff;
+  padding: 2.5rem;
+  font-size: 1.25rem;
+  font-family: system-ui, sans-serif;
+
+  &[data-type="block"] {
+    --tt-background: #000000;
+
+    &::backdrop {
+      background-color: #000000;
+    }
+  }
+}

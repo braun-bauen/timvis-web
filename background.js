@@ -1,3 +1,4 @@
+const DEV_MODE = false;
 const LIMIT_MS = 5 * 60 * 1000;
 const WARN_BEFORE_MS = 60 * 1000;
 const WARN_AT_MS = LIMIT_MS - WARN_BEFORE_MS;
@@ -66,6 +67,9 @@ async function sendMessageToAllTwitterTabs(message) {
 }
 
 async function handleTick(elapsedMs, senderTabId) {
+  if (DEV_MODE) {
+    return;
+  }
   const state = await getState();
   state.usedMs += elapsedMs;
 
@@ -94,6 +98,16 @@ async function handleTick(elapsedMs, senderTabId) {
 }
 
 async function handleGetStatus() {
+  if (DEV_MODE) {
+    return {
+      usedMs: 0,
+      limitMs: LIMIT_MS,
+      warnAtMs: WARN_AT_MS,
+      blocked: false,
+      showWarning: false,
+      devMode: true
+    };
+  }
   const state = await getState();
   const blocked = state.usedMs >= LIMIT_MS;
   let showWarning = false;
@@ -109,8 +123,30 @@ async function handleGetStatus() {
     limitMs: LIMIT_MS,
     warnAtMs: WARN_AT_MS,
     blocked,
-    showWarning
+    showWarning,
+    devMode: false
   };
+}
+
+async function handleDebugAction(action) {
+  if (!DEV_MODE) {
+    return { ok: false };
+  }
+
+  if (action === "warning") {
+    await sendMessageToAllTwitterTabs({
+      type: "debugWarning",
+      remainingMs: WARN_BEFORE_MS
+    });
+    return { ok: true };
+  }
+
+  if (action === "block") {
+    await sendMessageToAllTwitterTabs({ type: "debugBlock" });
+    return { ok: true };
+  }
+
+  return { ok: false };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -135,8 +171,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         limitMs: LIMIT_MS,
         warnAtMs: WARN_AT_MS,
         blocked: false,
-        showWarning: false
+        showWarning: false,
+        devMode: false
       }));
+    return true;
+  }
+
+  if (message.type === "debugAction") {
+    handleDebugAction(message.action)
+      .then((result) => sendResponse(result))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
 

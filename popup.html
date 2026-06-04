@@ -7,12 +7,18 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="card">
-      <div class="title">Twitter Timeout</div>
-      <div class="status" id="status">Checking status...</div>
-      <div class="detail" id="detail"></div>
-      <div class="hint">Limits reset each hour.</div>
+    <div class="title">Twitter Timeout</div>
+    <div class="status" id="status">Checking status...</div>
+    <div class="detail" id="detail"></div>
+    <div class="actions" id="debug-actions" hidden>
+      <button class="action-button" id="show-warning-button" type="button">
+        Show warning
+      </button>
+      <button class="action-button" id="show-block-button" type="button">
+        Show block
+      </button>
     </div>
+    <div class="hint">Limits reset each hour.</div>
     <script src="popup.js"></script>
   </body>
 </html>

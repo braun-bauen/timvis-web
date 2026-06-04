@@ -8,16 +8,26 @@ function formatTime(ms) {
 function updateStatus(status) {
   const statusEl = document.getElementById("status");
   const detailEl = document.getElementById("detail");
+  const actionsEl = document.getElementById("debug-actions");
 
   if (!status) {
     statusEl.textContent = "Status unavailable.";
     detailEl.textContent = "";
+    actionsEl.hidden = true;
     return;
   }
 
   const remaining = Math.max(0, status.limitMs - status.usedMs);
 
-  statusEl.classList.remove("warn", "blocked");
+  statusEl.classList.remove("dev", "warn", "blocked");
+  actionsEl.hidden = !status.devMode;
+
+  if (status.devMode) {
+    statusEl.textContent = "Dev mode enabled";
+    statusEl.classList.add("dev");
+    detailEl.textContent = "Use the buttons below to preview the warning and block dialogs.";
+    return;
+  }
 
   if (status.blocked) {
     statusEl.textContent = "Blocked for this hour";
@@ -37,6 +47,24 @@ function updateStatus(status) {
   detailEl.textContent = `Limit per hour: ${formatTime(status.limitMs)}.`;
 }
 
-chrome.runtime.sendMessage({ type: "getStatus" }, (status) => {
-  updateStatus(status);
+function refreshStatus() {
+  chrome.runtime.sendMessage({ type: "getStatus" }, (status) => {
+    updateStatus(status);
+  });
+}
+
+function triggerDebugAction(action) {
+  chrome.runtime.sendMessage({ type: "debugAction", action }, () => {
+    void chrome.runtime.lastError;
+  });
+}
+
+document.getElementById("show-warning-button").addEventListener("click", () => {
+  triggerDebugAction("warning");
 });
+
+document.getElementById("show-block-button").addEventListener("click", () => {
+  triggerDebugAction("block");
+});
+
+refreshStatus();

@@ -6,21 +6,11 @@ body {
   margin: 0;
   padding: 18px;
   min-width: 260px;
-  font-family: "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
-  background: radial-gradient(circle at top, #1f2426 0%, #0f1011 65%);
-  color: #f7f2e9;
-}
-
-.card {
-  padding: 16px 18px 18px;
-  border-radius: 16px;
-  background: linear-gradient(155deg, rgba(34, 39, 42, 0.95), rgba(10, 10, 12, 0.95));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  font-family:
+    "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
 }
 
 .title {
-  font-family: "Palatino Linotype", "Book Antiqua", "Palatino", "Georgia", serif;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.4px;
@@ -30,25 +20,43 @@ body {
   margin-top: 12px;
   font-size: 14px;
   font-weight: 500;
+
+  &.dev {
+    color: #4cd964;
+  }
+
+  &.warn {
+    color: #ffcc4d;
+  }
+
+  &.blocked {
+    color: #ff6b5c;
+  }
 }
 
 .detail {
   margin-top: 6px;
   font-size: 12px;
-  color: rgba(247, 242, 233, 0.7);
   line-height: 1.4;
+}
+
+.actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+}
+
+.action-button {
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .hint {
   margin-top: 14px;
   font-size: 11px;
-  color: rgba(247, 242, 233, 0.55);
-}
-
-.status.warn {
-  color: #ffcc4d;
-}
-
-.status.blocked {
-  color: #ff6b5c;
 }
