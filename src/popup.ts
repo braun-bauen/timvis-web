@@ -1,3 +1,5 @@
+import "./popup.css";
+
 function formatTime(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
