@@ -21,7 +21,7 @@ body {
   font-size: 14px;
   font-weight: 500;
 
-  &.dev {
+  &.debug {
     color: #4cd964;
   }
 
@@ -29,7 +29,7 @@ body {
     color: #ffcc4d;
   }
 
-  &.blocked {
+  &.block {
     color: #ff6b5c;
   }
 }
@@ -44,6 +44,10 @@ body {
   margin-top: 14px;
   display: flex;
   gap: 12px;
+
+  &[hidden] {
+    display: none;
+  }
 }
 
 .action-button {
