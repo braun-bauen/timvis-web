@@ -6,17 +6,20 @@
     <title>Twitter Timeout</title>
   </head>
   <body>
-    <div class="title">Twitter Timeout</div>
-    <div class="status" id="status">Checking status...</div>
-    <div class="actions" id="debug-actions" hidden>
-      <button class="action-button" id="show-warning-button" type="button">
+    <div id="title">Twitter Timeout</div>
+    <div id="status">Checking status...</div>
+    <div id="actions" hidden>
+      <button data-action="warn">
         Show warning
       </button>
-      <button class="action-button" id="show-block-button" type="button">
+      <button data-action="block">
         Show block
       </button>
+      <button data-action="unblock">
+        Unblock
+      </button>
     </div>
-    <div class="hint">Limits reset each hour.</div>
+    <div id="hint">Limits reset each hour.</div>
     <script type="module" src="/src/popup.ts"></script>
   </body>
 </html>

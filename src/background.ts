@@ -134,8 +134,15 @@ async function handleGetStatus(): Promise<StatusMessage> {
 async function handleDebugAction(
   action: Action | undefined,
 ): Promise<{ ok: boolean }> {
-  if (!env.debug || !action || (action !== "warn" && action !== "block")) {
+  if (!env.debug || !action) {
     return { ok: false };
+  }
+
+  if (action === "unblock") {
+    const state = await getState();
+    state.blocked = false;
+    state.warningShown = false;
+    await saveState(state);
   }
 
   await sendMessageToAllTwitterTabs(action);
