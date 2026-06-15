@@ -1,10 +1,17 @@
-const DEV_MODE = false;
+import { env } from "./env";
+import type {
+  Action,
+  RuntimeMessage,
+  StatusMessage,
+  StoredState,
+} from "./types";
+
 const LIMIT_MS = 5 * 60 * 1000;
 const WARN_BEFORE_MS = 60 * 1000;
 const WARN_AT_MS = LIMIT_MS - WARN_BEFORE_MS;
 const STORAGE_KEY = "tt_state";
 
-function getHourKey(date = new Date()) {
+function getHourKey(date = new Date()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -12,177 +19,172 @@ function getHourKey(date = new Date()) {
   return `${year}-${month}-${day}-${hour}`;
 }
 
-function storageGet(key) {
+function storageGet(
+  key: string,
+): Promise<Record<string, StoredState | undefined>> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(key, resolve);
+    chrome.storage.local.get(key, (items) => {
+      resolve(items as Record<string, StoredState | undefined>);
+    });
   });
 }
 
-function storageSet(value) {
+function storageSet(value: Record<string, StoredState>): Promise<void> {
   return new Promise((resolve) => {
-    chrome.storage.local.set(value, resolve);
+    chrome.storage.local.set(value, () => resolve());
   });
 }
 
-async function getState() {
+async function getState(): Promise<StoredState> {
   const currentHour = getHourKey();
-  const stored = await storageGet(STORAGE_KEY);
-  const state = stored[STORAGE_KEY] || {
+  const defaultState: StoredState = {
     hourKey: currentHour,
     usedMs: 0,
-    warningShown: false
+    warningShown: false,
+    blocked: false,
   };
 
-  if (state.hourKey !== currentHour) {
-    return {
-      hourKey: currentHour,
-      usedMs: 0,
-      warningShown: false
-    };
+  const stored = await storageGet(STORAGE_KEY);
+  const state = stored[STORAGE_KEY] || defaultState;
+
+  if (!state || state.hourKey !== currentHour) {
+    return defaultState;
   }
 
-  return state;
+  return {
+    ...defaultState,
+    ...state,
+    blocked: state.blocked ?? state.usedMs >= LIMIT_MS,
+  };
 }
 
-async function saveState(state) {
+async function saveState(state: StoredState): Promise<void> {
   await storageSet({ [STORAGE_KEY]: state });
 }
 
-function sendMessageToTab(tabId, message) {
+function sendMessageToTab(
+  tabId: number | undefined | null,
+  message: Action,
+): void {
   if (!tabId) {
     return;
   }
+
   chrome.tabs.sendMessage(tabId, message, () => {
     void chrome.runtime.lastError;
   });
 }
 
-async function sendMessageToAllTwitterTabs(message) {
+async function sendMessageToAllTwitterTabs(message: Action): Promise<void> {
   const tabs = await chrome.tabs.query({
-    url: ["https://x.com/*", "https://*.x.com/*"]
+    url: ["https://x.com/*", "https://*.x.com/*"],
   });
   for (const tab of tabs) {
     sendMessageToTab(tab.id, message);
   }
 }
 
-async function handleTick(elapsedMs, senderTabId) {
-  if (DEV_MODE) {
+async function handleTick(
+  elapsedMs: number,
+  senderTabId: number | null,
+): Promise<void> {
+  if (env.debug) {
     return;
   }
+
   const state = await getState();
   state.usedMs += elapsedMs;
 
-  let shouldWarn = false;
-  let shouldBlock = false;
-
-  if (state.usedMs >= LIMIT_MS) {
-    shouldBlock = true;
+  if (state.usedMs >= LIMIT_MS && !state.blocked) {
+    state.blocked = true;
+    await sendMessageToAllTwitterTabs("block");
   } else if (state.usedMs >= WARN_AT_MS && !state.warningShown) {
     state.warningShown = true;
-    shouldWarn = true;
+    sendMessageToTab(senderTabId, "warn");
   }
 
   await saveState(state);
-
-  if (shouldWarn) {
-    sendMessageToTab(senderTabId, {
-      type: "warn",
-      remainingMs: Math.max(0, LIMIT_MS - state.usedMs)
-    });
-  }
-
-  if (shouldBlock) {
-    await sendMessageToAllTwitterTabs({ type: "block" });
-  }
 }
 
-async function handleGetStatus() {
-  if (DEV_MODE) {
+async function handleGetStatus(): Promise<StatusMessage> {
+  if (env.debug) {
     return {
-      usedMs: 0,
-      limitMs: LIMIT_MS,
-      warnAtMs: WARN_AT_MS,
       blocked: false,
       showWarning: false,
-      devMode: true
+      debug: true,
     };
   }
+
   const state = await getState();
-  const blocked = state.usedMs >= LIMIT_MS;
   let showWarning = false;
 
-  if (!blocked && state.usedMs >= WARN_AT_MS && !state.warningShown) {
+  if (!state.blocked && state.usedMs >= WARN_AT_MS && !state.warningShown) {
     state.warningShown = true;
     showWarning = true;
     await saveState(state);
   }
 
   return {
-    usedMs: state.usedMs,
-    limitMs: LIMIT_MS,
-    warnAtMs: WARN_AT_MS,
-    blocked,
+    blocked: state.blocked,
     showWarning,
-    devMode: false
+    debug: false,
   };
 }
 
-async function handleDebugAction(action) {
-  if (!DEV_MODE) {
+async function handleDebugAction(
+  action: Action | undefined,
+): Promise<{ ok: boolean }> {
+  if (!env.debug || !action || (action !== "warn" && action !== "block")) {
     return { ok: false };
   }
 
-  if (action === "warning") {
-    await sendMessageToAllTwitterTabs({
-      type: "debugWarning",
-      remainingMs: WARN_BEFORE_MS
-    });
-    return { ok: true };
-  }
-
-  if (action === "block") {
-    await sendMessageToAllTwitterTabs({ type: "debugBlock" });
-    return { ok: true };
-  }
-
-  return { ok: false };
+  await sendMessageToAllTwitterTabs(action);
+  return { ok: true };
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || typeof message.type !== "string") {
+chrome.runtime.onMessage.addListener(
+  (message: unknown, sender, sendResponse) => {
+    if (
+      !message ||
+      typeof message !== "object" ||
+      !("type" in message) ||
+      typeof message.type !== "string"
+    ) {
+      return false;
+    }
+
+    const runtimeMessage = message as RuntimeMessage;
+
+    if (runtimeMessage.type === "tick") {
+      const elapsedMs = Math.max(0, Number(runtimeMessage.elapsedMs) || 0);
+      const senderTabId = sender?.tab?.id ?? null;
+      handleTick(elapsedMs, senderTabId)
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+
+    if (runtimeMessage.type === "getStatus") {
+      handleGetStatus()
+        .then((status) => sendResponse(status))
+        .catch(() =>
+          sendResponse({
+            blocked: false,
+            showWarning: false,
+          } as StatusMessage),
+        );
+      return true;
+    }
+
+    if (runtimeMessage.type === "debug") {
+      handleDebugAction(runtimeMessage.action)
+        .then((result) => sendResponse(result))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+
     return false;
-  }
+  },
+);
 
-  if (message.type === "tick") {
-    const elapsedMs = Math.max(0, Number(message.elapsedMs) || 0);
-    const senderTabId = sender?.tab?.id ?? null;
-    handleTick(elapsedMs, senderTabId)
-      .then(() => sendResponse({ ok: true }))
-      .catch(() => sendResponse({ ok: false }));
-    return true;
-  }
-
-  if (message.type === "getStatus") {
-    handleGetStatus()
-      .then((status) => sendResponse(status))
-      .catch(() => sendResponse({
-        usedMs: 0,
-        limitMs: LIMIT_MS,
-        warnAtMs: WARN_AT_MS,
-        blocked: false,
-        showWarning: false,
-        devMode: false
-      }));
-    return true;
-  }
-
-  if (message.type === "debugAction") {
-    handleDebugAction(message.action)
-      .then((result) => sendResponse(result))
-      .catch(() => sendResponse({ ok: false }));
-    return true;
-  }
-
-  return false;
-});
+export { };

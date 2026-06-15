@@ -1,6 +1,8 @@
-const DEV_MODE = false;
+import type { Action, DialogOptions, StatusMessage } from "./types";
+
 const TICK_INTERVAL_MS = 1000;
 const WHITELIST_PATH_PREFIXES = ["/messages"];
+
 let lastTick = Date.now();
 let ticking = false;
 let warningShown = false;
@@ -8,17 +10,13 @@ let blocked = false;
 let limitReached = false;
 let lastUrl = window.location.href;
 
-function isWhitelistedPath(pathname = window.location.pathname) {
+function isWhitelistedPath(pathname = window.location.pathname): boolean {
   return WHITELIST_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
 
-/**
- * @param {{ type: "warning" | "block", message: string }} options
- * @returns {HTMLDialogElement}
- */
-function createDialog({ type, message }) {
+function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   const dialog = document.createElement("dialog");
   dialog.id = "tt-dialog";
   dialog.setAttribute("data-type", type);
@@ -29,7 +27,7 @@ function createDialog({ type, message }) {
 
   document.documentElement.appendChild(dialog);
 
-  if (type === "warning") {
+  if (type === "warn") {
     dialog.addEventListener("click", (event) => {
       if (event.target !== dialog) {
         return;
@@ -52,63 +50,57 @@ function createDialog({ type, message }) {
   return dialog;
 }
 
-/**
- * @param {HTMLDialogElement} dialog
- */
-function dismissDialog(dialog) {
-  if (!dialog) {
-    return;
-  }
+function dismissDialog(dialog: HTMLDialogElement): void {
   dialog.close();
   dialog.remove();
 }
 
-function showWarning() {
-  if (!DEV_MODE && warningShown) {
+function showWarning(): void {
+  if (warningShown) {
     return;
   }
-  warningShown = true;
-  const existing = document.querySelector("#tt-dialog");
+  const existing = document.querySelector("#tt-dialog[data-type='warn']");
   if (existing) {
     return;
   }
 
+  warningShown = true;
+
   const dialog = createDialog({
-    type: "warning",
+    type: "warn",
     message: "One minute left until Twitter is blocked.",
   });
   dialog.showModal();
 }
 
-function showBlock() {
-  if (isWhitelistedPath()) {
+function showBlock(): void {
+  if (isWhitelistedPath() || blocked) {
     return;
   }
-  if (blocked) {
-    return;
-  }
-  blocked = true;
+
   const existing = document.querySelector("#tt-dialog");
   if (existing) {
-    dismissDialog(existing);
+    dismissDialog(existing as HTMLDialogElement);
   }
+
   const dialog = createDialog({
     type: "block",
     message: "Twitter is blocked for the rest of this hour.",
   });
+
   dialog.showModal();
+  blocked = true;
 }
 
-function removeBlock() {
+function removeBlock(): void {
   blocked = false;
-  warningShown = false;
-  const dialog = document.querySelector("#tt-dialog");
+  const dialog = document.querySelector("#tt-dialog[data-type='block']");
   if (dialog) {
-    dismissDialog(dialog);
+    dismissDialog(dialog as HTMLDialogElement);
   }
 }
 
-function applyBlockState() {
+function handleBlock(): void {
   if (!limitReached) {
     removeBlock();
     return;
@@ -122,7 +114,7 @@ function applyBlockState() {
   showBlock();
 }
 
-function startTicking() {
+function startTicking(): void {
   if (ticking) {
     return;
   }
@@ -137,11 +129,11 @@ function startTicking() {
     const currentUrl = window.location.href;
     if (currentUrl !== lastUrl) {
       lastUrl = currentUrl;
-      applyBlockState();
+      handleBlock();
       refreshStatus();
     }
 
-    if (DEV_MODE || !document.hasFocus()) {
+    if (!document.hasFocus()) {
       return;
     }
 
@@ -151,35 +143,41 @@ function startTicking() {
   }, TICK_INTERVAL_MS);
 }
 
-function refreshStatus() {
-  chrome.runtime.sendMessage({ type: "getStatus" }, (status) => {
-    if (!status) {
-      return;
-    }
-    if (status.devMode) {
-      limitReached = false;
-      removeBlock();
-      return;
-    }
-    if (status.showWarning) {
-      showWarning(status.limitMs - status.usedMs);
-    }
+function refreshStatus(): void {
+  chrome.runtime.sendMessage(
+    { type: "getStatus" },
+    (status: StatusMessage | undefined) => {
+      if (!status) {
+        return;
+      }
+      if (status.debug) {
+        limitReached = false;
+        removeBlock();
+        return;
+      }
+      if (status.showWarning) {
+        showWarning();
+      }
 
-    limitReached = Boolean(status.blocked);
-    applyBlockState();
-  });
+      limitReached = status.blocked;
+      handleBlock();
+    },
+  );
 }
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (!message || typeof message.type !== "string") {
+chrome.runtime.onMessage.addListener((message: unknown) => {
+  if (!message || typeof message !== "string") {
     return;
   }
-  if (message.type === "warn" || message.type === "debugWarning") {
-    showWarning(message.remainingMs ?? 0);
+
+  const actionMessage = message as Action;
+
+  if (actionMessage === "warn") {
+    showWarning();
   }
-  if (message.type === "block" || message.type === "debugBlock") {
+  if (actionMessage === "block") {
     limitReached = true;
-    applyBlockState();
+    handleBlock();
   }
 });
 
@@ -191,3 +189,5 @@ document.addEventListener("visibilitychange", () => {
     refreshStatus();
   }
 });
+
+export { };
