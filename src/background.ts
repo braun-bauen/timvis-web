@@ -1,16 +1,20 @@
 import { env } from "./env";
+import {
+  getBlockedDomainForUrl,
+  getOptions,
+  isWhitelistedUrl,
+} from "./options";
 import type {
   Action,
+  BlockedDomainConfig,
   RuntimeMessage,
   StatusMessage,
   StoredState,
 } from "./types";
 import { storageGet, storageSet } from "./utils";
 
-const LIMIT_MS = 5 * 60 * 1000;
 const WARN_BEFORE_MS = 60 * 1000;
-const WARN_AT_MS = LIMIT_MS - WARN_BEFORE_MS;
-const STORAGE_KEY = "tt_state";
+const STATE_STORAGE_PREFIX = "timvis_state";
 
 function getHourKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -20,7 +24,11 @@ function getHourKey(date = new Date()): string {
   return `${year}-${month}-${day}-${hour}`;
 }
 
-async function getState(): Promise<StoredState> {
+function getStateStorageKey(config: BlockedDomainConfig): string {
+  return `${STATE_STORAGE_PREFIX}:${config.id}`;
+}
+
+async function getState(config: BlockedDomainConfig): Promise<StoredState> {
   const currentHour = getHourKey();
   const defaultState: StoredState = {
     hourKey: currentHour,
@@ -29,8 +37,9 @@ async function getState(): Promise<StoredState> {
     blocked: false,
   };
 
-  const stored = await storageGet<StoredState>(STORAGE_KEY);
-  const state = stored[STORAGE_KEY] || defaultState;
+  const storageKey = getStateStorageKey(config);
+  const stored = await storageGet<StoredState>(storageKey);
+  const state = stored[storageKey] || defaultState;
 
   if (!state || state.hourKey !== currentHour) {
     return defaultState;
@@ -39,12 +48,15 @@ async function getState(): Promise<StoredState> {
   return {
     ...defaultState,
     ...state,
-    blocked: state.blocked ?? state.usedMs >= LIMIT_MS,
+    blocked: state.blocked ?? state.usedMs >= config.limitMs,
   };
 }
 
-async function saveState(state: StoredState): Promise<void> {
-  await storageSet<StoredState>({ [STORAGE_KEY]: state });
+async function saveState(
+  config: BlockedDomainConfig,
+  state: StoredState,
+): Promise<void> {
+  await storageSet<StoredState>({ [getStateStorageKey(config)]: state });
 }
 
 function sendMessageToTab(
@@ -60,59 +72,101 @@ function sendMessageToTab(
   });
 }
 
-async function sendMessageToAllTwitterTabs(message: Action): Promise<void> {
-  const tabs = await chrome.tabs.query({
-    url: ["https://x.com/*", "https://*.x.com/*"],
-  });
+async function sendMessageToDomainTabs(
+  config: BlockedDomainConfig,
+  message: Action,
+): Promise<void> {
+  const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
   for (const tab of tabs) {
-    sendMessageToTab(tab.id, message);
+    if (tab.url && getBlockedDomainForUrl({ blockedDomains: [config] }, tab.url)) {
+      sendMessageToTab(tab.id, message);
+    }
   }
+}
+
+async function getConfigForUrl(
+  url: string | undefined,
+): Promise<BlockedDomainConfig | null> {
+  if (!url) {
+    return null;
+  }
+  const options = await getOptions();
+  return getBlockedDomainForUrl(options, url);
 }
 
 async function handleTick(
   elapsedMs: number,
   senderTabId: number | null,
+  url: string | undefined,
 ): Promise<void> {
   if (env.debug) {
     return;
   }
 
-  const state = await getState();
+  const config = await getConfigForUrl(url);
+  if (!config || !url || isWhitelistedUrl(config, url)) {
+    return;
+  }
+
+  const state = await getState(config);
+  const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   state.usedMs += elapsedMs;
 
-  if (state.usedMs >= LIMIT_MS && !state.blocked) {
+  if (state.usedMs >= config.limitMs && !state.blocked) {
     state.blocked = true;
-    await sendMessageToAllTwitterTabs("block");
-  } else if (state.usedMs >= WARN_AT_MS && !state.warningShown) {
+    await sendMessageToDomainTabs(config, "block");
+  } else if (warnAtMs > 0 && state.usedMs >= warnAtMs && !state.warningShown) {
     state.warningShown = true;
     sendMessageToTab(senderTabId, "warn");
   }
 
-  await saveState(state);
+  await saveState(config, state);
 }
 
-async function handleGetStatus(): Promise<StatusMessage> {
+async function handleGetStatus(url: string | undefined): Promise<StatusMessage> {
   if (env.debug) {
     return {
       blocked: false,
       showWarning: false,
       debug: true,
+      whitelisted: false,
     };
   }
 
-  const state = await getState();
+  const config = await getConfigForUrl(url);
+  if (!config || !url) {
+    return {
+      blocked: false,
+      showWarning: false,
+      debug: false,
+      whitelisted: false,
+    };
+  }
+
+  const whitelisted = isWhitelistedUrl(config, url);
+  const state = await getState(config);
+  const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
 
-  if (!state.blocked && state.usedMs >= WARN_AT_MS && !state.warningShown) {
+  if (
+    !whitelisted &&
+    warnAtMs > 0 &&
+    !state.blocked &&
+    state.usedMs >= warnAtMs &&
+    !state.warningShown
+  ) {
     state.warningShown = true;
     showWarning = true;
-    await saveState(state);
+    await saveState(config, state);
   }
 
   return {
-    blocked: state.blocked,
+    blocked: !whitelisted && state.blocked,
     showWarning,
     debug: false,
+    whitelisted,
+    domainConfigId: config.id,
+    domain: config.domain,
   };
 }
 
@@ -124,13 +178,23 @@ async function handleDebugAction(
   }
 
   if (action === "unblock") {
-    const state = await getState();
-    state.blocked = false;
-    state.warningShown = false;
-    await saveState(state);
+    const options = await getOptions();
+    await Promise.all(
+      options.blockedDomains.map(async (config) => {
+        const state = await getState(config);
+        state.blocked = false;
+        state.warningShown = false;
+        await saveState(config, state);
+      }),
+    );
   }
 
-  await sendMessageToAllTwitterTabs(action);
+  const options = await getOptions();
+  await Promise.all(
+    options.blockedDomains.map((config) =>
+      sendMessageToDomainTabs(config, action),
+    ),
+  );
   return { ok: true };
 }
 
@@ -150,19 +214,22 @@ chrome.runtime.onMessage.addListener(
     if (runtimeMessage.type === "tick") {
       const elapsedMs = Math.max(0, Number(runtimeMessage.elapsedMs) || 0);
       const senderTabId = sender?.tab?.id ?? null;
-      handleTick(elapsedMs, senderTabId)
+      const url = runtimeMessage.url ?? sender?.tab?.url;
+      handleTick(elapsedMs, senderTabId, url)
         .then(() => sendResponse({ ok: true }))
         .catch(() => sendResponse({ ok: false }));
       return true;
     }
 
     if (runtimeMessage.type === "getStatus") {
-      handleGetStatus()
+      handleGetStatus(runtimeMessage.url ?? sender?.tab?.url)
         .then((status) => sendResponse(status))
         .catch(() =>
           sendResponse({
             blocked: false,
             showWarning: false,
+            debug: false,
+            whitelisted: false,
           } as StatusMessage),
         );
       return true;

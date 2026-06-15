@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "build:debug": "VITE_DEBUG=true vite build"
   },
   "keywords": [],
   "author": "",

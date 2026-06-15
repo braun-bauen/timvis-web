@@ -1,20 +1,16 @@
 import type { Action, DialogOptions, StatusMessage } from "./types";
 
 const TICK_INTERVAL_MS = 1000;
-const WHITELIST_PATH_PREFIXES = ["/messages"];
 
 let lastTick = Date.now();
 let ticking = false;
 let warningShown = false;
 let blocked = false;
 let limitReached = false;
+let whitelisted = false;
+let blockedDomain = "this site";
+let domainConfigId: string | undefined;
 let lastUrl = window.location.href;
-
-function isWhitelistedPath(pathname = window.location.pathname): boolean {
-  return WHITELIST_PATH_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-}
 
 function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   const dialog = document.createElement("dialog");
@@ -73,14 +69,14 @@ function setWarningOpen(open: boolean): void {
 
   const dialog = createDialog({
     type: "warn",
-    message: "One minute left until Twitter is blocked.",
+    message: `One minute left until ${blockedDomain} is blocked.`,
   });
   dialog.showModal();
   warningShown = true;
 }
 
 function showBlock(): void {
-  if (isWhitelistedPath() || blocked) {
+  if (whitelisted || blocked) {
     return;
   }
 
@@ -91,7 +87,7 @@ function showBlock(): void {
 
   const dialog = createDialog({
     type: "block",
-    message: "Twitter is blocked for the rest of this hour.",
+    message: `${blockedDomain} is blocked for the rest of this hour.`,
   });
 
   dialog.showModal();
@@ -112,7 +108,7 @@ function handleBlock(): void {
     return;
   }
 
-  if (isWhitelistedPath()) {
+  if (whitelisted) {
     removeBlock();
     return;
   }
@@ -143,24 +139,36 @@ function startTicking(): void {
       return;
     }
 
-    chrome.runtime.sendMessage({ type: "tick", elapsedMs: elapsed }, () => {
-      void chrome.runtime.lastError;
-    });
+    chrome.runtime.sendMessage(
+      { type: "tick", elapsedMs: elapsed, url: window.location.href },
+      () => {
+        void chrome.runtime.lastError;
+      },
+    );
   }, TICK_INTERVAL_MS);
 }
 
 function refreshStatus(): void {
   chrome.runtime.sendMessage(
-    { type: "getStatus" },
+    { type: "getStatus", url: window.location.href },
     (status: StatusMessage | undefined) => {
       if (!status) {
         return;
       }
       if (status.debug) {
         limitReached = false;
+        whitelisted = false;
         removeBlock();
         return;
       }
+      if (domainConfigId !== status.domainConfigId) {
+        warningShown = false;
+        setWarningOpen(false);
+        removeBlock();
+      }
+      domainConfigId = status.domainConfigId;
+      blockedDomain = status.domain ?? "this site";
+      whitelisted = status.whitelisted;
       if (status.showWarning) {
         setWarningOpen(true);
       }
