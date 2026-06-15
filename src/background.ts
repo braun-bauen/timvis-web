@@ -5,6 +5,7 @@ import type {
   StatusMessage,
   StoredState,
 } from "./types";
+import { storageGet, storageSet } from "./utils";
 
 const LIMIT_MS = 5 * 60 * 1000;
 const WARN_BEFORE_MS = 60 * 1000;
@@ -19,22 +20,6 @@ function getHourKey(date = new Date()): string {
   return `${year}-${month}-${day}-${hour}`;
 }
 
-function storageGet(
-  key: string,
-): Promise<Record<string, StoredState | undefined>> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(key, (items) => {
-      resolve(items as Record<string, StoredState | undefined>);
-    });
-  });
-}
-
-function storageSet(value: Record<string, StoredState>): Promise<void> {
-  return new Promise((resolve) => {
-    chrome.storage.local.set(value, () => resolve());
-  });
-}
-
 async function getState(): Promise<StoredState> {
   const currentHour = getHourKey();
   const defaultState: StoredState = {
@@ -44,7 +29,7 @@ async function getState(): Promise<StoredState> {
     blocked: false,
   };
 
-  const stored = await storageGet(STORAGE_KEY);
+  const stored = await storageGet<StoredState>(STORAGE_KEY);
   const state = stored[STORAGE_KEY] || defaultState;
 
   if (!state || state.hourKey !== currentHour) {
@@ -59,7 +44,7 @@ async function getState(): Promise<StoredState> {
 }
 
 async function saveState(state: StoredState): Promise<void> {
-  await storageSet({ [STORAGE_KEY]: state });
+  await storageSet<StoredState>({ [STORAGE_KEY]: state });
 }
 
 function sendMessageToTab(
