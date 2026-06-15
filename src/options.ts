@@ -73,6 +73,35 @@ function pathMatches(pathname: string, pathPrefix: string): boolean {
   return pathname === pathPrefix || pathname.startsWith(`${pathPrefix}/`);
 }
 
+export function getOriginPatterns(config: BlockedDomainConfig): string[] {
+  return [`http://${config.domain}/*`, `https://${config.domain}/*`];
+}
+
+export async function requestHostPermissions(
+  configs: BlockedDomainConfig[],
+): Promise<boolean> {
+  const origins = Array.from(new Set(configs.flatMap(getOriginPatterns)));
+  if (origins.length === 0) {
+    return false;
+  }
+
+  const hasPermissions = await chrome.permissions.contains({ origins });
+  if (hasPermissions) {
+    return true;
+  }
+
+  return chrome.permissions.request({ origins });
+}
+
+export function getContentScriptMatches(config: BlockedDomainConfig): string[] {
+  return [
+    `http://${config.domain}/*`,
+    `http://*.${config.domain}/*`,
+    `https://${config.domain}/*`,
+    `https://*.${config.domain}/*`,
+  ];
+}
+
 /**
  * Returns the blocked domain config for the given URL, or null if the URL is invalid or not blocked.
  * The domain matching is done by checking if the URL's hostname is equal to or a subdomain of the config's domain.
@@ -113,9 +142,14 @@ export async function getOptions(): Promise<ExtensionOptions> {
 }
 
 export async function saveOptions(options: ExtensionOptions): Promise<void> {
-  await storageSet<ExtensionOptions>({
-    [OPTIONS_STORAGE_KEY]: normalizeOptions(options),
-  });
+  const normalizedOptions = normalizeOptions(options);
+  const granted = await requestHostPermissions(normalizedOptions.blockedDomains);
+  if (!granted) {
+    throw new Error("Host permissions were not granted.");
+  }
+
+  await storageSet<ExtensionOptions>({ [OPTIONS_STORAGE_KEY]: normalizedOptions });
+  chrome.runtime.sendMessage({ type: "optionsChanged" });
 }
 
 export { DEFAULT_OPTIONS, OPTIONS_STORAGE_KEY };

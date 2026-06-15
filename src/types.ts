@@ -33,7 +33,7 @@ export type ExtensionOptions = {
 };
 
 export type RuntimeMessage = {
-  type: "tick" | "getStatus" | "debug";
+  type: "tick" | "getStatus" | "debug" | "optionsChanged";
   elapsedMs?: number;
   action?: Action;
   url?: string;

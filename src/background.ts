@@ -1,6 +1,7 @@
 import { env } from "./env";
 import {
   getBlockedDomainForUrl,
+  getContentScriptMatches,
   getOptions,
   isWhitelistedUrl,
 } from "./options";
@@ -15,6 +16,7 @@ import { storageGet, storageSet } from "./utils";
 
 const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
+const CONTENT_SCRIPT_ID = "timvis_content";
 
 function getHourKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -26,6 +28,28 @@ function getHourKey(date = new Date()): string {
 
 function getStateStorageKey(config: BlockedDomainConfig): string {
   return `${STATE_STORAGE_PREFIX}:${config.id}`;
+}
+
+async function registerContentScripts(): Promise<void> {
+  const options = await getOptions();
+  await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+
+  const matches = Array.from(
+    new Set(options.blockedDomains.flatMap(getContentScriptMatches)),
+  );
+  if (matches.length === 0) {
+    return;
+  }
+
+  await chrome.scripting.registerContentScripts([
+    {
+      id: CONTENT_SCRIPT_ID,
+      matches,
+      css: ["content.css"],
+      js: ["content.js"],
+      runAt: "document_idle",
+    },
+  ]);
 }
 
 async function getState(config: BlockedDomainConfig): Promise<StoredState> {
@@ -242,8 +266,23 @@ chrome.runtime.onMessage.addListener(
       return true;
     }
 
+    if (runtimeMessage.type === "optionsChanged") {
+      registerContentScripts()
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+
     return false;
   },
 );
+
+chrome.runtime.onInstalled.addListener(() => {
+  registerContentScripts().catch(() => undefined);
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  registerContentScripts().catch(() => undefined);
+});
 
 export { };

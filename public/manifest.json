@@ -3,19 +3,11 @@
   "name": "Timvis",
   "version": "0.2.0",
   "description": "Limits time spent on configured domains per hour.",
-  "permissions": ["storage", "tabs"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["storage", "tabs", "scripting", "permissions"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "css": ["content.css"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
     "default_title": "Timvis",
     "default_popup": "src/popup.html"
