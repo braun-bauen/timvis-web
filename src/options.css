@@ -33,19 +33,10 @@ button:hover {
   background: #ffd978;
 }
 
-.shell {
+main {
   width: min(980px, 100%);
   margin: 0 auto;
   padding: 48px 20px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: #f4c95d;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 h1,
