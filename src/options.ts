@@ -1,8 +1,9 @@
 import type { BlockedDomainConfig, ExtensionOptions } from "./types";
-import { storageGet, storageSet } from "./utils";
+import { storageGet, storageRemove, storageSet } from "./utils";
 import "./options.css";
 
 const OPTIONS_STORAGE_KEY = "timvis_options";
+const STATE_STORAGE_PREFIX = "timvis_state";
 
 const DEFAULT_OPTIONS: ExtensionOptions = {
   blockedDomains: [],
@@ -66,6 +67,10 @@ function normalizeOptions(
   };
 }
 
+function getStateStorageKey(config: BlockedDomainConfig): string {
+  return `${STATE_STORAGE_PREFIX}:${config.id}`;
+}
+
 function domainMatches(hostname: string, domain: string): boolean {
   return hostname === domain || hostname.endsWith(`.${domain}`);
 }
@@ -105,6 +110,15 @@ export async function hasHostPermissions(
   config: BlockedDomainConfig,
 ): Promise<boolean> {
   return chrome.permissions.contains({ origins: getOriginPatterns(config) });
+}
+
+async function removeHostPermissions(configs: BlockedDomainConfig[]): Promise<void> {
+  const origins = Array.from(new Set(configs.flatMap(getOriginPatterns)));
+  if (origins.length === 0) {
+    return;
+  }
+
+  await chrome.permissions.remove({ origins });
 }
 
 async function getConfigsMissingHostPermissions(
@@ -157,6 +171,7 @@ export async function getOptions(): Promise<ExtensionOptions> {
 }
 
 export async function saveOptions(options: ExtensionOptions): Promise<void> {
+  const previousOptions = await getOptions();
   const normalizedOptions = normalizeOptions(options);
   const configsNeedingPermission = await getConfigsMissingHostPermissions(
     normalizedOptions.blockedDomains,
@@ -171,6 +186,16 @@ export async function saveOptions(options: ExtensionOptions): Promise<void> {
   await storageSet<ExtensionOptions>({
     [OPTIONS_STORAGE_KEY]: normalizedOptions,
   });
+  const currentIds = new Set(
+    normalizedOptions.blockedDomains.map((config) => config.id),
+  );
+  const removedConfigs = previousOptions.blockedDomains.filter(
+    (config) => !currentIds.has(config.id),
+  );
+  if (removedConfigs.length > 0) {
+    await storageRemove(removedConfigs.map(getStateStorageKey));
+    await removeHostPermissions(removedConfigs);
+  }
   chrome.runtime.sendMessage({ type: "optionsChanged" });
 }
 

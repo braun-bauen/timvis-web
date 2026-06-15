@@ -13,3 +13,9 @@ export function storageSet<T>(value: Record<string, T>): Promise<void> {
     chrome.storage.local.set(value, () => resolve());
   });
 }
+
+export function storageRemove(keys: string[]): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove(keys, () => resolve());
+  });
+}
