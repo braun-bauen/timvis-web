@@ -55,22 +55,28 @@ function dismissDialog(dialog: HTMLDialogElement): void {
   dialog.remove();
 }
 
-function showWarning(): void {
-  if (warningShown) {
-    return;
-  }
-  const existing = document.querySelector("#tt-dialog[data-type='warn']");
-  if (existing) {
+function setWarningOpen(open: boolean): void {
+  const existing = document.querySelector(
+    "#tt-dialog[data-type='warn']",
+  ) as HTMLDialogElement | null;
+
+  if (!open) {
+    if (existing) {
+      dismissDialog(existing);
+    }
     return;
   }
 
-  warningShown = true;
+  if (existing || warningShown) {
+    return;
+  }
 
   const dialog = createDialog({
     type: "warn",
     message: "One minute left until Twitter is blocked.",
   });
   dialog.showModal();
+  warningShown = true;
 }
 
 function showBlock(): void {
@@ -156,7 +162,7 @@ function refreshStatus(): void {
         return;
       }
       if (status.showWarning) {
-        showWarning();
+        setWarningOpen(true);
       }
 
       limitReached = status.blocked;
@@ -173,11 +179,17 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
   const actionMessage = message as Action;
 
   if (actionMessage === "warn") {
-    showWarning();
+    setWarningOpen(true);
   }
   if (actionMessage === "block") {
     limitReached = true;
     handleBlock();
+  }
+  if (actionMessage === "unblock") {
+    warningShown = false;
+    limitReached = false;
+    setWarningOpen(false);
+    removeBlock();
   }
 });
 

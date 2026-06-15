@@ -10,13 +10,13 @@ body {
     "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
 }
 
-.title {
+#title {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.4px;
 }
 
-.status {
+#status {
   margin-top: 12px;
   font-size: 14px;
   font-weight: 500;
@@ -34,33 +34,26 @@ body {
   }
 }
 
-.detail {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.actions {
+#actions {
   margin-top: 14px;
   display: flex;
+  flex-flow: column nowrap;
   gap: 12px;
 
   &[hidden] {
     display: none;
   }
+
+  button {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 0.5rem;
+    font: inherit;
+    cursor: pointer;
+  }
 }
 
-.action-button {
-  flex: 1;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.hint {
+#hint {
   margin-top: 14px;
   font-size: 11px;
 }

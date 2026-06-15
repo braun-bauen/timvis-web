@@ -1,7 +1,7 @@
-export type Action = "warn" | "block";
+export type Action = "warn" | "block" | "unblock";
 
 export type DialogOptions = {
-  type: Action;
+  type: "warn" | "block";
   message: string;
 };
 

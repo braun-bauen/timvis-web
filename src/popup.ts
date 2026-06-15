@@ -9,9 +9,22 @@ function requireElement<T extends HTMLElement>(id: string): T {
   return element as T;
 }
 
+function setupDebugButtons(): void {
+  document.querySelectorAll("button[data-action]").forEach((button) => {
+    const action = button.getAttribute("data-action") as Action | null;
+    if (!action) {
+      return;
+    }
+
+    button.addEventListener("click", () => {
+      triggerDebugAction(action);
+    });
+  });
+}
+
 function updateStatus(status: StatusMessage): void {
   const statusEl = requireElement<HTMLElement>("status");
-  const actionsEl = requireElement<HTMLElement>("debug-actions");
+  const actionsEl = requireElement<HTMLElement>("actions");
 
   if (!status) {
     statusEl.textContent = "Status unavailable.";
@@ -50,12 +63,5 @@ function triggerDebugAction(action: Action): void {
   });
 }
 
-requireElement<HTMLButtonElement>("show-warning-button").addEventListener("click", () => {
-  triggerDebugAction("warn");
-});
-
-requireElement<HTMLButtonElement>("show-block-button").addEventListener("click", () => {
-  triggerDebugAction("block");
-});
-
+setupDebugButtons();
 refreshStatus();
