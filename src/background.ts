@@ -3,6 +3,7 @@ import {
   getBlockedDomainForUrl,
   getContentScriptMatches,
   getOptions,
+  hasHostPermissions,
   isWhitelistedUrl,
 } from "./options";
 import type {
@@ -32,10 +33,19 @@ function getStateStorageKey(config: BlockedDomainConfig): string {
 
 async function registerContentScripts(): Promise<void> {
   const options = await getOptions();
-  await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+  await chrome.scripting
+    .unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] })
+    .catch(() => undefined);
+
+  const permittedConfigs = [];
+  for (const config of options.blockedDomains) {
+    if (await hasHostPermissions(config)) {
+      permittedConfigs.push(config);
+    }
+  }
 
   const matches = Array.from(
-    new Set(options.blockedDomains.flatMap(getContentScriptMatches)),
+    new Set(permittedConfigs.flatMap(getContentScriptMatches)),
   );
   if (matches.length === 0) {
     return;

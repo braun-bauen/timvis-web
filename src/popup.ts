@@ -1,5 +1,5 @@
 import "./popup.css";
-import { Action, RuntimeMessage, StatusMessage } from "./types";
+import type { Action, RuntimeMessage, StatusMessage } from "./types";
 
 function requireElement<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -22,7 +22,7 @@ function setupDebugButtons(): void {
   });
 }
 
-function updateStatus(status: StatusMessage): void {
+function updateStatus(status: StatusMessage | undefined): void {
   const statusEl = requireElement<HTMLElement>("status");
   const actionsEl = requireElement<HTMLElement>("actions");
 
@@ -32,7 +32,7 @@ function updateStatus(status: StatusMessage): void {
     return;
   }
 
-  statusEl.classList.remove("debug", "warn", "block");
+  statusEl.classList.remove("debug", "block");
   statusEl.textContent = "Active";
   actionsEl.hidden = !status.debug;
 
@@ -50,8 +50,13 @@ function updateStatus(status: StatusMessage): void {
 }
 
 function refreshStatus(): void {
-  chrome.runtime.sendMessage({ type: "getStatus" }, (status: StatusMessage) => {
-    updateStatus(status);
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    chrome.runtime.sendMessage(
+      { type: "getStatus", url: tab?.url },
+      (status: StatusMessage) => {
+        updateStatus(status);
+      },
+    );
   });
 }
 

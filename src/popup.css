@@ -24,11 +24,6 @@ body {
   &.debug {
     color: #4cd964;
   }
-
-  &.warn {
-    color: #ffcc4d;
-  }
-
   &.block {
     color: #ff6b5c;
   }
