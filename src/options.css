@@ -1,145 +1,15 @@
+@import "@esri/calcite-components/main.css";
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
   background: #11131a;
   color: #f4f0e8;
   font-family:
     "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  border: 0;
-  border-radius: 999px;
-  padding: 0.75rem 1rem;
-  background: #f4c95d;
-  color: #17130a;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #ffd978;
-}
-
-main {
-  width: min(980px, 100%);
-  margin: 0 auto;
-  padding: 48px 20px;
-}
-
-h1,
-h2,
-p {
-  margin-top: 0;
-}
-
-h1 {
-  margin-bottom: 10px;
-  font-size: clamp(2.2rem, 7vw, 4.6rem);
-  line-height: 0.95;
-}
-
-.lede {
-  max-width: 620px;
-  color: #b8b2a8;
-  font-size: 1.05rem;
-}
-
-.card,
-.domain-card {
-  border: 1px solid rgba(244, 240, 232, 0.14);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
-}
-
-.card {
-  margin-top: 34px;
-  padding: 24px;
-}
-
-.section-header,
-.actions,
-.domain-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.section-header p {
-  margin-bottom: 0;
-  color: #a9a297;
-}
-
-.domains {
-  display: grid;
-  gap: 18px;
-  margin-top: 24px;
-}
-
-.domain-card {
-  padding: 18px;
-}
-
-.domain-grid {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.45fr) minmax(120px, 0.35fr);
-  gap: 14px;
-}
-
-label {
-  display: grid;
-  gap: 8px;
-  color: #d9d2c8;
-  font-weight: 700;
-}
-
-label + label,
-.domain-grid + label {
-  margin-top: 14px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  border: 1px solid rgba(244, 240, 232, 0.16);
-  border-radius: 14px;
-  padding: 0.75rem 0.85rem;
-  background: rgba(0, 0, 0, 0.24);
-  color: #fffaf0;
-}
-
-textarea {
-  resize: vertical;
-}
-
-.remove-domain {
-  margin-top: 14px;
-  background: transparent;
-  color: #ff9a8c;
-  border: 1px solid rgba(255, 154, 140, 0.4);
-}
-
-.actions {
-  position: sticky;
-  bottom: 0;
-  margin-top: 22px;
-  padding: 18px 0 0;
-  background: linear-gradient(180deg, rgba(17, 19, 26, 0), #11131a 35%);
 }
 
 #status {
@@ -155,22 +25,14 @@ textarea {
   color: #89e6a2;
 }
 
-@media (max-width: 720px) {
-  .shell {
-    padding: 28px 14px;
-  }
+calcite-block > section {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--calcite-space-md);
 
-  .section-header,
-  .actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .domain-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .card {
-    padding: 16px;
+  .row {
+    display: flex;
+    flex-flow: row wrap;
+    gap: var(--calcite-space-md);
   }
 }

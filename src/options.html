@@ -3,66 +3,87 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Timvis Options</title>
+    <title>Timvis domains</title>
     <script defer type="module" src="/src/options-page.ts"></script>
   </head>
   <body>
-    <main>
-      <header>
-        <h1>Timvis - Domain limits</h1>
-        <p class="lede">
-          Add domains to track, set an hourly time limit, and keep useful paths
-          available.
-        </p>
-      </header>
+    <calcite-shell>
+      <calcite-panel
+        heading="Timvis domains"
+        description="Add domains to track, set an hourly time limit, and keep useful paths available."
+        scale="l"
+        heading-level="1"
+      >
+        <calcite-action
+          id="add-domain"
+          slot="header-actions-end"
+          text="Add domain"
+          text-enabled
+          icon="plus"
+          scale="l"
+        ></calcite-action>
+        <calcite-action
+          id="save"
+          slot="header-actions-end"
+          text="Save changes"
+          text-enabled
+          icon="save"
+          scale="l"
+        ></calcite-action>
 
-      <section class="card" aria-labelledby="domains-title">
-        <div class="section-header">
-          <div>
-            <h2 id="domains-title">Blocked Domains</h2>
-            <p>Permission is requested when a new domain is saved.</p>
-          </div>
-          <button id="add-domain" type="button">Add Domain</button>
-        </div>
-        <div id="domains" class="domains"></div>
-      </section>
-
-      <footer class="actions">
         <div id="status" role="status" aria-live="polite"></div>
-        <button id="save" type="button">Save Changes</button>
-      </footer>
-    </main>
+
+        <calcite-block-group id="domains"></calcite-block-group>
+
+        <calcite-dialog id="edit-dialog" heading="Edit domain" modal>
+          <calcite-input id="edit-domain-input" label="Domain name"></calcite-input>
+          <calcite-button id="edit-cancel" slot="footer-end" appearance="outline">
+            Cancel
+          </calcite-button>
+          <calcite-button id="edit-save" slot="footer-end">Save</calcite-button>
+        </calcite-dialog>
+      </calcite-panel>
+    </calcite-shell>
+
     <template id="domain-template">
-      <article class="domain-card">
-        <div class="domain-grid">
-          <label>
-            <span>Domain</span>
-            <input class="domain-input" type="text" placeholder="example.com" />
-          </label>
-          <label>
-            <span>Hourly limit</span>
-            <input class="limit-input" type="number" min="1" step="1" />
-          </label>
-          <label>
-            <span>Unit</span>
-            <select class="unit-input">
-              <option value="minutes">Minutes</option>
-              <option value="seconds">Seconds</option>
-            </select>
-          </label>
-        </div>
-        <label>
-          <span>Whitelisted paths</span>
-          <textarea
-            class="paths-input"
+      <calcite-block collapsible>
+          <calcite-action
+            data-action="edit-domain"
+          slot="header-menu-actions"
+          text="Edit"
+          text-enabled
+          icon="pencil"
+        ></calcite-action>
+          <calcite-action
+            data-action="delete-domain"
+          slot="header-menu-actions"
+          text="Delete"
+          text-enabled
+          icon="x"
+        ></calcite-action>
+        <section>
+          <div class="row">
+            <calcite-select data-field="unit" label-text="Time unit">
+              <calcite-option value="minutes">Minutes</calcite-option>
+              <calcite-option value="seconds">Seconds</calcite-option>
+            </calcite-select>
+            <calcite-input
+              data-field="limit"
+              label-text="Time limit"
+              type="number"
+              min="1"
+              step="1"
+              value="5"
+            ></calcite-input>
+          </div>
+          <calcite-text-area
+            data-field="whitelist"
+            label-text="Whitelisted paths (one per line)"
             rows="3"
             placeholder="/inbox&#10;/settings"
-          ></textarea>
-        </label>
-        <div class="domain-actions">
-          <button class="remove-domain" type="button">Remove</button>
-        </div>
-      </article>
+          ></calcite-text-area>
+        </section>
+      </calcite-block>
     </template>
   </body>
 </html>
