@@ -1,0 +1,38 @@
+@import "@esri/calcite-components/main.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #11131a;
+  color: #f4f0e8;
+  font-family:
+    "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
+}
+
+#status {
+  min-height: 1.4em;
+  color: #b8b2a8;
+}
+
+#status.error {
+  color: #ff9a8c;
+}
+
+#status.success {
+  color: #89e6a2;
+}
+
+calcite-block > section {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--calcite-space-md);
+
+  .row {
+    display: flex;
+    flex-flow: row wrap;
+    gap: var(--calcite-space-md);
+  }
+}

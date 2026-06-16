@@ -9,6 +9,9 @@ export type StatusMessage = {
   blocked: boolean;
   showWarning: boolean;
   debug: boolean;
+  whitelisted: boolean;
+  domainConfigId?: string;
+  domain?: string;
 };
 
 export type StoredState = {
@@ -18,8 +21,20 @@ export type StoredState = {
   blocked: boolean;
 };
 
+export type BlockedDomainConfig = {
+  id: string;
+  domain: string;
+  limitMs: number;
+  whitelistedPaths: string[];
+};
+
+export type ExtensionOptions = {
+  blockedDomains: BlockedDomainConfig[];
+};
+
 export type RuntimeMessage = {
-  type: "tick" | "getStatus" | "debug"
+  type: "tick" | "getStatus" | "debug" | "optionsChanged";
   elapsedMs?: number;
   action?: Action;
+  url?: string;
 };

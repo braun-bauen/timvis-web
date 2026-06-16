@@ -1,23 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Twitter Timeout",
+  "name": "Timvis",
   "version": "0.2.0",
-  "description": "Limits time spent on x.com per hour.",
-  "permissions": ["storage", "tabs"],
-  "host_permissions": ["https://x.com/*", "https://*.x.com/*"],
+  "description": "Limits time spent on configured domains per hour.",
+  "permissions": ["storage", "tabs", "scripting"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["https://x.com/*", "https://*.x.com/*"],
-      "css": ["content.css"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
-    "default_title": "Twitter Timeout",
+    "default_title": "Timvis",
     "default_popup": "src/popup.html"
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
   }
 }
