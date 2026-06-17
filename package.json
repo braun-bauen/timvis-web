@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "dev": "vite",
+    "dev:popup": "vite --open /src/popup.html",
+    "dev:options": "vite --open /src/options.html",
     "build": "vite build",
     "build:debug": "VITE_DEBUG=true vite build"
   },

@@ -2,6 +2,7 @@ import "@esri/calcite-components/components/calcite-shell";
 import "@esri/calcite-components/components/calcite-panel";
 import "@esri/calcite-components/components/calcite-block";
 import "@esri/calcite-components/components/calcite-block-group";
+import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-action";
 import "@esri/calcite-components/components/calcite-input";
 import "@esri/calcite-components/components/calcite-text-area";
@@ -58,10 +59,38 @@ function getDomainFormElements(
   };
 }
 
-function setStatus(message: string, type: "error" | "success" | "" = ""): void {
-  const status = getElement<HTMLElement>("#status");
-  status.textContent = message;
-  status.className = type;
+type StatusOptions = {
+  title: string;
+  message?: string;
+  kind?: HTMLCalciteAlertElement["kind"];
+};
+
+function emitAlert({
+  title,
+  message = "",
+  kind = "brand",
+}: StatusOptions): void {
+  const panelEl = getElement<HTMLCalcitePanelElement>("calcite-panel");
+  const alertTemplate = getElement<HTMLTemplateElement>("#alert-template");
+  const alertEl = getElement<HTMLCalciteAlertElement>(
+    "calcite-alert",
+    alertTemplate.content,
+  );
+  const alert = alertEl.cloneNode(true) as HTMLCalciteAlertElement;
+
+  alert.kind = kind;
+  alert.autoClose = kind !== "danger";
+  alert.open = true;
+  getElement("[slot='title']", alert).textContent = title;
+
+  if (message) {
+    const messageEl = document.createElement("div");
+    messageEl.textContent = message;
+    messageEl.setAttribute("slot", "message");
+    alert.append(messageEl);
+  }
+
+  panelEl.append(alert);
 }
 
 function splitWhitelistedPaths(value: string): string[] {
@@ -175,7 +204,6 @@ function renderDomain({
 
     if (result.action === "save") {
       block.heading = result.value;
-      setStatus("");
     }
   });
 
@@ -184,7 +212,6 @@ function renderDomain({
     block,
   ).addEventListener("click", () => {
     block.remove();
-    setStatus("");
   });
 
   domainGroup.append(block);
@@ -251,23 +278,30 @@ function setupOptionsUi(): void {
         },
         expanded: true,
       });
-      setStatus("");
     },
   );
 
   const saveAction = getElement<HTMLCalciteActionElement>("#save");
   saveAction.addEventListener("click", async () => {
     saveAction.disabled = true;
-    setStatus("Saving...");
 
     try {
       await saveOptions(readOptionsFromForm());
       await loadOptionsUi();
-      setStatus("Options saved.", "success");
+      emitAlert({
+        title: "Changes saved",
+        message:
+          "If a domain is already open, refresh the tab to load the new changes.",
+        kind: "success",
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to save options.";
-      setStatus(message, "error");
+      emitAlert({
+        title: "Sorry, something went wrong",
+        message,
+        kind: "danger",
+      });
     } finally {
       saveAction.disabled = false;
     }
@@ -276,7 +310,11 @@ function setupOptionsUi(): void {
   loadOptionsUi().catch((error: unknown) => {
     const message =
       error instanceof Error ? error.message : "Unable to load options.";
-    setStatus(message, "error");
+    emitAlert({
+      title: "Sorry, something went wrong",
+      message,
+      kind: "danger",
+    });
   });
 }
 
