@@ -20,7 +20,6 @@
           text="Add domain"
           text-enabled
           icon="plus"
-          scale="l"
         ></calcite-action>
         <calcite-action
           id="save"
@@ -28,16 +27,20 @@
           text="Save changes"
           text-enabled
           icon="save"
-          scale="l"
         ></calcite-action>
-
-        <div id="status" role="status" aria-live="polite"></div>
 
         <calcite-block-group id="domains"></calcite-block-group>
 
         <calcite-dialog id="edit-dialog" heading="Edit domain" modal>
-          <calcite-input id="edit-domain-input" label="Domain name"></calcite-input>
-          <calcite-button id="edit-cancel" slot="footer-end" appearance="outline">
+          <calcite-input
+            id="edit-domain-input"
+            label="Domain name"
+          ></calcite-input>
+          <calcite-button
+            id="edit-cancel"
+            slot="footer-end"
+            appearance="outline"
+          >
             Cancel
           </calcite-button>
           <calcite-button id="edit-save" slot="footer-end">Save</calcite-button>
@@ -45,17 +48,23 @@
       </calcite-panel>
     </calcite-shell>
 
+    <template id="alert-template">
+      <calcite-alert slot="alerts">
+        <div slot="title">Changes saved</div>
+      </calcite-alert>
+    </template>
+
     <template id="domain-template">
       <calcite-block collapsible>
-          <calcite-action
-            data-action="edit-domain"
+        <calcite-action
+          data-action="edit-domain"
           slot="header-menu-actions"
           text="Edit"
           text-enabled
           icon="pencil"
         ></calcite-action>
-          <calcite-action
-            data-action="delete-domain"
+        <calcite-action
+          data-action="delete-domain"
           slot="header-menu-actions"
           text="Delete"
           text-enabled

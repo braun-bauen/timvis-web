@@ -4,25 +4,24 @@
   box-sizing: border-box;
 }
 
-body {
+body,
+html {
   margin: 0;
-  background: #11131a;
-  color: #f4f0e8;
-  font-family:
-    "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
+  padding: 0;
 }
 
-#status {
-  min-height: 1.4em;
-  color: #b8b2a8;
+:root {
+  --calcite-color-brand: hsl(235 18 36);
+  --calcite-color-brand-hover: hsl(235 18 30);
+  --calcite-color-brand-press: hsl(235 18 20);
 }
 
-#status.error {
-  color: #ff9a8c;
-}
-
-#status.success {
-  color: #89e6a2;
+#save {
+  --calcite-action-background-color: var(--calcite-color-brand);
+  --calcite-action-background-color-hover: var(--calcite-color-brand-hover);
+  --calcite-action-background-color-press: var(--calcite-color-brand-press);
+  --calcite-action-text-color: var(--calcite-color-text-inverse);
+  --calcite-action-text-color-press: var(--calcite-color-text-inverse);
 }
 
 calcite-block > section {
