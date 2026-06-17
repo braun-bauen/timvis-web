@@ -63,14 +63,15 @@ type StatusOptions = {
   title: string;
   message?: string;
   kind?: HTMLCalciteAlertElement["kind"];
+  mountEl?: HTMLCalciteDialogElement;
 };
 
 function emitAlert({
   title,
   message = "",
   kind = "brand",
+  mountEl,
 }: StatusOptions): void {
-  const panelEl = getElement<HTMLCalcitePanelElement>("calcite-panel");
   const alertTemplate = getElement<HTMLTemplateElement>("#alert-template");
   const alertEl = getElement<HTMLCalciteAlertElement>(
     "calcite-alert",
@@ -80,7 +81,10 @@ function emitAlert({
 
   alert.kind = kind;
   alert.autoClose = kind !== "danger";
+  alert.autoCloseDuration = "fast";
   alert.open = true;
+  alert.queue = mountEl || kind === "danger" ? "immediate" : "last";
+  alert.scale = mountEl ? "s" : "m";
   getElement("[slot='title']", alert).textContent = title;
 
   if (message) {
@@ -90,7 +94,18 @@ function emitAlert({
     alert.append(messageEl);
   }
 
-  panelEl.append(alert);
+  if (kind === "danger") {
+    document
+      .querySelectorAll(
+        'calcite-alert[kind="success"], calcite-alert[kind="brand"], calcite-alert[kind="info"]',
+      )
+      .forEach((existing) => {
+        existing.remove();
+      });
+  }
+
+  const mount = mountEl ?? getElement<HTMLCalcitePanelElement>("calcite-panel");
+  mount.append(alert);
 }
 
 function splitWhitelistedPaths(value: string): string[] {
@@ -126,21 +141,29 @@ function editDomain({
 
     const cleanup = () => {
       saveButton.removeEventListener("click", handleSave);
-      saveButton.addEventListener("keypress", handleKeySave);
       cancelButton.removeEventListener("click", handleCancel);
       dialog.removeEventListener("calciteDialogClose", handleClose);
-    };
-
-    const handleKeySave = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        handleSave();
-      }
+      dialog
+        .querySelectorAll("calcite-alert")
+        .forEach((alert) => alert.remove());
     };
 
     const handleSave = () => {
+      const value = normalizeDomain(input.value);
+
+      if (!value) {
+        input.setFocus();
+        emitAlert({
+          title: "Please enter a domain",
+          kind: "warning",
+          mountEl: dialog,
+        });
+        return;
+      }
+
       result = {
         action: "save",
-        value: normalizeDomain(input.value),
+        value,
       };
 
       dialog.open = false;
@@ -156,15 +179,15 @@ function editDomain({
     };
 
     saveButton.addEventListener("click", handleSave);
-    saveButton.addEventListener("keypress", handleKeySave);
     cancelButton.addEventListener("click", handleCancel);
     dialog.addEventListener("calciteDialogClose", handleClose, {
       once: true,
     });
 
     dialog.open = true;
-    input.setFocus();
-    input.selectText();
+    requestAnimationFrame(() => {
+      input.setFocus();
+    });
   });
 }
 
