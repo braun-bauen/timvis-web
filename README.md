@@ -1,4 +1,5 @@
 # Twitter Timeout
+
 A simple Chromium extension that blocks Twitter after a specified amount of usage per hour.
 
 Currently only blocks Twitter visually via a scrim, but might extend it to block network requests.
@@ -21,7 +22,16 @@ This project uses `pnpm` and Vite.
 
    Set `VITE_DEBUG=true` in `.env` if you want debug behavior enabled locally.
 
-## Build
+### HTML page development
+
+Some parts of the extension use HTML pages (popup, options). For basic development on these pages, the respective dev server commands can be used to open the pages with HMR:
+
+```sh
+pnpm dev:popup
+pnpm dev:options
+```
+
+### Build
 
 Build the unpacked Chrome extension into `dist/`:
 
@@ -31,7 +41,7 @@ pnpm build
 
 The build includes the extension manifest, background script, content script, popup, and static assets.
 
-## Load in Chrome
+### Load in Chrome
 
 1. Build the extension with `pnpm build`.
 2. Open `chrome://extensions`.
@@ -41,6 +51,15 @@ The build includes the extension manifest, background script, content script, po
 
 After loading, visit `https://x.com/` to test the extension.
 
-## Rebuild After Changes
+### Rebuild After Changes
 
 After changing source files, run `pnpm build` again, then click the reload button for the extension on `chrome://extensions`.
+
+## Releasing
+
+To release a new version of Timvis, follow these steps:
+
+1. Update the version number in [package.json](package.json) and the [manifest.json](public/manifest.json) file according to semantic versioning 2. Push the changes to the main branch via PR
+3. Create a new tag with the new version number: `git tag vX.X.X`
+4. Push the tag: `git push origin vX.X.X`
+5. The [release.yml](.github/workflows/release.yml) workflow will automatically build the extension and create a new release on GitHub with the built extension as an asset.
