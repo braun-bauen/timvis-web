@@ -57,10 +57,9 @@ After changing source files, run `pnpm build` again, then click the reload butto
 
 ## Releasing
 
-To release a new version of Timivs, follow these steps:
+To release a new version of Timvis, follow these steps:
 
-1. Update the version number in `package.json` according to semantic versioning
-2. Push the changes to the main branch via PR
+1. Update the version number in [package.json](package.json) and the [manifest.json](public/manifest.json) file according to semantic versioning 2. Push the changes to the main branch via PR
 3. Create a new tag with the new version number: `git tag vX.X.X`
 4. Push the tag: `git push origin vX.X.X`
 5. The [release.yml](.github/workflows/release.yml) workflow will automatically build the extension and create a new release on GitHub with the built extension as an asset.

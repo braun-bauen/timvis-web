@@ -40,12 +40,21 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Validate tag matches manifest
-        run: test "${GITHUB_REF_NAME}" = "v${{ steps.manifest.outputs.version }}"
+        run: |
+          EXPECTED_TAG="v${{ steps.manifest.outputs.version }}"
+          ACTUAL_TAG="${{ github.ref_name }}"
+
+          if [ "$ACTUAL_TAG" != "$EXPECTED_TAG" ]; then
+            echo "Release tag must match manifest version."
+            echo "Expected: $EXPECTED_TAG"
+            echo "Actual:   $ACTUAL_TAG"
+            exit 1
+          fi
 
       - name: Package extension
         run: |
           cd dist
-          zip -r "../timvis-web-${GITHUB_REF_NAME}.zip" .
+          zip -r "../timvis-web-${{ github.ref_name }}.zip" .
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
