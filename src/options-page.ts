@@ -17,6 +17,7 @@ import {
   normalizeDomain,
   normalizePath,
   saveOptions,
+  validateDomain,
 } from "./options";
 import "./options.css";
 
@@ -148,13 +149,14 @@ function editDomain({
         .forEach((alert) => alert.remove());
     };
 
-    const handleSave = () => {
-      const value = normalizeDomain(input.value);
+    const handleSave = async () => {
+      const { domain, error } = await validateDomain(input.value);
 
-      if (!value) {
+      if (error) {
         input.setFocus();
+        input.selectText();
         emitAlert({
-          title: "Please enter a domain",
+          title: error === "empty" ? "Please enter a domain" : "This domain is already limited, please enter a different domain.",
           kind: "warning",
           mountEl: dialog,
         });
@@ -163,7 +165,7 @@ function editDomain({
 
       result = {
         action: "save",
-        value,
+        value: domain,
       };
 
       dialog.open = false;

@@ -1,4 +1,4 @@
-import type { BlockedDomainConfig, ExtensionOptions } from "./types";
+import type { BlockedDomainConfig, ExtensionOptions, ValidatedDomain } from "./types";
 import { storageGet, storageRemove, storageSet } from "./utils";
 
 const OPTIONS_STORAGE_KEY = "timvis_options";
@@ -14,6 +14,25 @@ export function normalizeDomain(domain: string): string {
     .toLowerCase()
     .replace(/^https?:\/\//, "")
     .split("/")[0];
+}
+
+/**
+ * Validates a given domain string. Checks if the domain is non-empty and is not duplicate.
+ */
+export async function validateDomain(domain: string): Promise<ValidatedDomain> {
+  const normalizedDomain = normalizeDomain(domain);
+  if (!normalizedDomain) {
+    return { domain: normalizedDomain, error: "empty" };
+  }
+
+  const { blockedDomains }= await getOptions();
+
+  const isDuplicate = blockedDomains.some((config) => config.domain === normalizedDomain);
+  if (isDuplicate) {
+    return { domain: normalizedDomain, error: "duplicate" };
+  }
+  
+  return { domain: normalizedDomain };
 }
 
 export function normalizePath(path: string): string {

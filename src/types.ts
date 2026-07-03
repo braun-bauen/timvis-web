@@ -32,6 +32,12 @@ export type ExtensionOptions = {
   blockedDomains: BlockedDomainConfig[];
 };
 
+export type ValidatedDomain = {
+  domain: string;
+  error?: "empty" | "duplicate";
+}
+
+
 export type RuntimeMessage = {
   type: "tick" | "getStatus" | "debug" | "optionsChanged";
   elapsedMs?: number;
