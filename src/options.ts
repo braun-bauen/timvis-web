@@ -79,15 +79,12 @@ export default function Options() {
   }
 
   function normalizeData(data: Partial<ExtensionData>): ExtensionData {
-    return {
-      domains: Array.from(
-        new Set(
-          (data.domains ?? [])
-            .map(normalizeDomain)
-            .filter((config): config is DomainData => config !== null),
-        ),
-      ),
-    };
+    const normalized = (data.domains ?? [])
+      .map(normalizeDomain)
+      .filter((config): config is DomainData => config !== null);
+
+    const uniqueByUrl = new Map(normalized.map((domain) => [domain.url, domain]));
+    return { domains: Array.from(uniqueByUrl.values()) };
   }
 
   function normalizeUrl(url: string): string {
