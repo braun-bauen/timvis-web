@@ -30,6 +30,14 @@ export default function Options() {
 
   async function addDomain(domain: DomainData): Promise<{ error?: string }> {
     const data = await getData();
+
+    const validatedUrl = await validateUrl(domain.url);
+    if (validatedUrl.error) {
+      return { error: `Invalid domain URL: ${validatedUrl.error}` };
+    }
+
+    domain.url = validatedUrl.url;
+
     data.domains.push(domain);
 
     const granted = await requestHostPermissions(domain);
@@ -135,7 +143,7 @@ export default function Options() {
     }
 
     return {
-      id: config.id ?? crypto.randomUUID(),
+      id: (config.id ? String(config.id).trim() : "") || domain,
       url: domain,
       limitMs,
       whitelistedPaths: Array.from(
