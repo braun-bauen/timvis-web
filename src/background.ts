@@ -1,14 +1,8 @@
 import { env } from "./env";
-import {
-  getBlockedDomainForUrl,
-  getContentScriptMatches,
-  getOptions,
-  hasHostPermissions,
-  isWhitelistedUrl,
-} from "./options";
+import Options from "./options";
 import type {
   Action,
-  BlockedDomainConfig,
+  DomainData,
   RuntimeMessage,
   StatusMessage,
   StoredState,
@@ -19,6 +13,8 @@ const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
 const CONTENT_SCRIPT_ID = "timvis_content";
 
+const options = Options();
+
 function getHourKey(date = new Date()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -27,26 +23,16 @@ function getHourKey(date = new Date()): string {
   return `${year}-${month}-${day}-${hour}`;
 }
 
-function getStateStorageKey(config: BlockedDomainConfig): string {
+function getStateStorageKey(config: DomainData): string {
   return `${STATE_STORAGE_PREFIX}:${config.id}`;
 }
 
 async function registerContentScripts(): Promise<void> {
-  const options = await getOptions();
   await chrome.scripting
     .unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] })
     .catch(() => undefined);
 
-  const permittedConfigs = [];
-  for (const config of options.blockedDomains) {
-    if (await hasHostPermissions(config)) {
-      permittedConfigs.push(config);
-    }
-  }
-
-  const matches = Array.from(
-    new Set(permittedConfigs.flatMap(getContentScriptMatches)),
-  );
+  const matches = await options.getContentMatches();
   if (matches.length === 0) {
     return;
   }
@@ -62,7 +48,7 @@ async function registerContentScripts(): Promise<void> {
   ]);
 }
 
-async function getState(config: BlockedDomainConfig): Promise<StoredState> {
+async function getState(config: DomainData): Promise<StoredState> {
   const currentHour = getHourKey();
   const defaultState: StoredState = {
     hourKey: currentHour,
@@ -87,7 +73,7 @@ async function getState(config: BlockedDomainConfig): Promise<StoredState> {
 }
 
 async function saveState(
-  config: BlockedDomainConfig,
+  config: DomainData,
   state: StoredState,
 ): Promise<void> {
   await storageSet<StoredState>({ [getStateStorageKey(config)]: state });
@@ -107,12 +93,12 @@ function sendMessageToTab(
 }
 
 async function sendMessageToDomainTabs(
-  config: BlockedDomainConfig,
+  config: DomainData,
   message: Action,
 ): Promise<void> {
   const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
   for (const tab of tabs) {
-    if (tab.url && getBlockedDomainForUrl({ blockedDomains: [config] }, tab.url)) {
+    if (tab.url && options.getBlockedDomainForUrl([config], tab.url)) {
       sendMessageToTab(tab.id, message);
     }
   }
@@ -120,12 +106,12 @@ async function sendMessageToDomainTabs(
 
 async function getConfigForUrl(
   url: string | undefined,
-): Promise<BlockedDomainConfig | null> {
+): Promise<DomainData | null> {
   if (!url) {
     return null;
   }
-  const options = await getOptions();
-  return getBlockedDomainForUrl(options, url);
+  const domains = await options.getDomains();
+  return options.getBlockedDomainForUrl(domains, url);
 }
 
 async function handleTick(
@@ -138,7 +124,7 @@ async function handleTick(
   }
 
   const config = await getConfigForUrl(url);
-  if (!config || !url || isWhitelistedUrl(config, url)) {
+  if (!config || !url || options.isWhitelistedUrl(config, url)) {
     return;
   }
 
@@ -177,7 +163,7 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
     };
   }
 
-  const whitelisted = isWhitelistedUrl(config, url);
+  const whitelisted = options.isWhitelistedUrl(config, url);
   const state = await getState(config);
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
@@ -200,7 +186,7 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
     debug: false,
     whitelisted,
     domainConfigId: config.id,
-    domain: config.domain,
+    domain: config.url,
   };
 }
 
@@ -211,10 +197,11 @@ async function handleDebugAction(
     return { ok: false };
   }
 
+  const domains = await options.getDomains();
+
   if (action === "unblock") {
-    const options = await getOptions();
     await Promise.all(
-      options.blockedDomains.map(async (config) => {
+      domains.map(async (config) => {
         const state = await getState(config);
         state.blocked = false;
         state.warningShown = false;
@@ -223,12 +210,12 @@ async function handleDebugAction(
     );
   }
 
-  const options = await getOptions();
   await Promise.all(
-    options.blockedDomains.map((config) =>
-      sendMessageToDomainTabs(config, action),
-    ),
+    domains.map(async (config) => {
+      await sendMessageToDomainTabs(config, action);
+    })
   );
+
   return { ok: true };
 }
 

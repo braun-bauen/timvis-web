@@ -16,7 +16,7 @@ html {
   --calcite-color-brand-press: hsl(235 18 20);
 }
 
-#save {
+.action-brand {
   --calcite-action-background-color: var(--calcite-color-brand);
   --calcite-action-background-color-hover: var(--calcite-color-brand-hover);
   --calcite-action-background-color-press: var(--calcite-color-brand-press);
@@ -24,7 +24,7 @@ html {
   --calcite-action-text-color-press: var(--calcite-color-text-inverse);
 }
 
-calcite-block > section {
+calcite-block > form {
   display: flex;
   flex-flow: column nowrap;
   gap: var(--calcite-space-md);
