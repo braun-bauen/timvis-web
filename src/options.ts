@@ -1,220 +1,249 @@
-import type { BlockedDomainConfig, ExtensionOptions, ValidatedDomain } from "./types";
+import type { DomainData, ExtensionData, ValidatedUrl } from "./types";
 import { storageGet, storageRemove, storageSet } from "./utils";
 
-const OPTIONS_STORAGE_KEY = "timvis_options";
-const STATE_STORAGE_PREFIX = "timvis_state";
 
-const DEFAULT_OPTIONS: ExtensionOptions = {
-  blockedDomains: [],
-};
+export default function Options() {
+  const OPTIONS_STORAGE_KEY = "timvis_options";
+  const STATE_STORAGE_PREFIX = "timvis_state";
 
-export function normalizeDomain(domain: string): string {
-  return domain
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .split("/")[0];
-}
+  async function getData(): Promise<ExtensionData> {
+    const stored = await storageGet<ExtensionData>(OPTIONS_STORAGE_KEY);
+    const data = stored[OPTIONS_STORAGE_KEY] ?? {
+      domains: []
+    }
 
-/**
- * Validates a given domain string. Checks if the domain is non-empty and is not duplicate.
- */
-export async function validateDomain(domain: string): Promise<ValidatedDomain> {
-  const normalizedDomain = normalizeDomain(domain);
-  if (!normalizedDomain) {
-    return { domain: normalizedDomain, error: "empty" };
+    return normalizeData(data);
   }
 
-  const { blockedDomains }= await getOptions();
+  async function save(data: ExtensionData): Promise<void> {
+    await storageSet<ExtensionData>({
+      [OPTIONS_STORAGE_KEY]: normalizeData(data),
+    });
 
-  const isDuplicate = blockedDomains.some((config) => config.domain === normalizedDomain);
-  if (isDuplicate) {
-    return { domain: normalizedDomain, error: "duplicate" };
-  }
-  
-  return { domain: normalizedDomain };
-}
-
-export function normalizePath(path: string): string {
-  const trimmed = path.trim();
-  if (!trimmed) {
-    return "";
-  }
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-}
-
-function normalizeBlockedDomain(
-  config: Partial<BlockedDomainConfig>,
-): BlockedDomainConfig | null {
-  const domain = normalizeDomain(config.domain ?? "");
-  if (!domain) {
-    return null;
+    chrome.runtime.sendMessage({ type: "optionsChanged" });
   }
 
-  const limitMs = Math.max(0, Math.floor(Number(config.limitMs) || 0));
-  if (!limitMs) {
-    return null;
+  async function getDomains(): Promise<DomainData[]> {
+    const { domains } = await getData();
+    return domains;
   }
 
-  return {
-    id: config.id?.trim() || domain,
-    domain,
-    limitMs,
-    whitelistedPaths: Array.from(
-      new Set(
-        (config.whitelistedPaths ?? [])
-          .map(normalizePath)
-          .filter((path) => path.length > 0),
+  async function addDomain(domain: DomainData): Promise<{ error?: string }> {
+    const data = await getData();
+    data.domains.push(domain);
+
+    const granted = await requestHostPermissions(domain);
+    if (!granted) {
+      return { error: `Host permissions were not granted for domain: ${domain.url}` };
+    }
+
+    await save(data);
+    return { error: undefined };
+  }
+
+  async function removeDomain(domain: DomainData): Promise<void> {
+    const data = await getData();
+    data.domains = data.domains.filter((config) => config.id !== domain.id);
+    await save(data);
+
+    await Promise.all([
+      storageRemove([getStateStorageKey(domain)]),
+      removeHostPermissions(domain),
+    ]);
+  }
+
+  async function updateDomain(domain: DomainData): Promise<{ error?: string }> {
+    const data = await getData();
+    const index = data.domains.findIndex((config) => config.id === domain.id);
+    if (index === -1) {
+      return { error: `Domain with id ${domain.id} not found.` };
+    }
+    data.domains[index] = domain;
+    await save(data);
+    return { error: undefined };
+  }
+
+  async function getContentMatches(): Promise<string[]> {
+    const domains = await getDomains();
+    const matches = new Set<string>();
+
+    await Promise.all(
+      domains.map(async (domain) => {
+        if (await hasHostPermissions(domain)) {
+          getOriginPatterns(domain).forEach((pattern) => matches.add(pattern));
+        }
+      })
+    );
+
+    return Array.from(matches);
+  }
+
+  function normalizeData(data: Partial<ExtensionData>): ExtensionData {
+    return {
+      domains: Array.from(
+        new Set(
+          (data.domains ?? [])
+            .map(normalizeDomain)
+            .filter((config): config is DomainData => config !== null),
+        ),
       ),
-    ),
-  };
-}
-
-function normalizeOptions(
-  options: Partial<ExtensionOptions>,
-): ExtensionOptions {
-  const blockedDomains = (options.blockedDomains ?? [])
-    .map(normalizeBlockedDomain)
-    .filter((config): config is BlockedDomainConfig => Boolean(config));
-
-  return {
-    blockedDomains:
-      blockedDomains.length > 0
-        ? blockedDomains
-        : DEFAULT_OPTIONS.blockedDomains,
-  };
-}
-
-function getStateStorageKey(config: BlockedDomainConfig): string {
-  return `${STATE_STORAGE_PREFIX}:${config.id}`;
-}
-
-function domainMatches(hostname: string, domain: string): boolean {
-  return hostname === domain || hostname.endsWith(`.${domain}`);
-}
-
-function pathMatches(pathname: string, pathPrefix: string): boolean {
-  return pathname === pathPrefix || pathname.startsWith(`${pathPrefix}/`);
-}
-
-export function getOriginPatterns(config: BlockedDomainConfig): string[] {
-  return [
-    `http://${config.domain}/*`,
-    `http://*.${config.domain}/*`,
-    `https://${config.domain}/*`,
-    `https://*.${config.domain}/*`,
-  ];
-}
-
-export const getContentScriptMatches = getOriginPatterns;
-
-export async function requestHostPermissions(
-  configs: BlockedDomainConfig[],
-): Promise<boolean> {
-  const origins = Array.from(new Set(configs.flatMap(getOriginPatterns)));
-  if (origins.length === 0) {
-    return false;
+    };
   }
 
-  const hasPermissions = await chrome.permissions.contains({ origins });
-  if (hasPermissions) {
-    return true;
+  function normalizeUrl(url: string): string {
+    return url
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .split("/")[0];
   }
 
-  return chrome.permissions.request({ origins });
-}
+  /**
+   * Validates a given domain string. Checks if the domain is non-empty and is not duplicate.
+   */
+  async function validateUrl(url: string): Promise<ValidatedUrl> {
+    const normalizedUrl = normalizeUrl(url);
+    if (!normalizedUrl) {
+      return { url: normalizedUrl, error: "empty" };
+    }
 
-export async function hasHostPermissions(
-  config: BlockedDomainConfig,
-): Promise<boolean> {
-  return chrome.permissions.contains({ origins: getOriginPatterns(config) });
-}
+    const domains = await getDomains();
+    const isDuplicate = domains.some((config) => config.url === normalizedUrl);
+    if (isDuplicate) {
+      return { url: normalizedUrl, error: "duplicate" };
+    }
 
-async function removeHostPermissions(configs: BlockedDomainConfig[]): Promise<void> {
-  const origins = Array.from(new Set(configs.flatMap(getOriginPatterns)));
-  if (origins.length === 0) {
-    return;
+    return { url: normalizedUrl };
   }
 
-  await chrome.permissions.remove({ origins });
-}
+  function normalizePath(path: string): string {
+    const trimmed = path.trim();
+    if (!trimmed) {
+      return "";
+    }
+    return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  }
 
-async function getConfigsMissingHostPermissions(
-  configs: BlockedDomainConfig[],
-): Promise<BlockedDomainConfig[]> {
-  const missingPermissions: BlockedDomainConfig[] = [];
+  function normalizeDomain(
+    config: Partial<DomainData>,
+  ): DomainData | null {
+    const domain = normalizeUrl(config.url ?? "");
+    if (!domain) {
+      return null;
+    }
 
-  for (const config of configs) {
-    if (!(await hasHostPermissions(config))) {
-      missingPermissions.push(config);
+    const limitMs = Math.max(0, Math.floor(Number(config.limitMs) || 0));
+    if (!limitMs) {
+      return null;
+    }
+
+    return {
+      id: config.id ?? crypto.randomUUID(),
+      url: domain,
+      limitMs,
+      whitelistedPaths: Array.from(
+        new Set(
+          (config.whitelistedPaths ?? [])
+            .map(normalizePath)
+            .filter((path) => path.length > 0),
+        ),
+      ),
+    };
+  }
+
+  function getStateStorageKey(config: DomainData): string {
+    return `${STATE_STORAGE_PREFIX}:${config.id}`;
+  }
+
+  function domainMatches(hostname: string, domain: string): boolean {
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+  }
+
+  function pathMatches(pathname: string, pathPrefix: string): boolean {
+    return pathname === pathPrefix || pathname.startsWith(`${pathPrefix}/`);
+  }
+
+  function getOriginPatterns(config: DomainData): string[] {
+    return [
+      `http://${config.url}/*`,
+      `http://*.${config.url}/*`,
+      `https://${config.url}/*`,
+      `https://*.${config.url}/*`,
+    ];
+  }
+
+  async function requestHostPermissions(
+    domain: DomainData,
+  ): Promise<boolean> {
+    const origins = getOriginPatterns(domain);
+    if (origins.length === 0) {
+      return false;
+    }
+
+    const hasPermissions = await chrome.permissions.contains({ origins });
+    if (hasPermissions) {
+      return true;
+    }
+
+    return chrome.permissions.request({ origins });
+  }
+
+  async function hasHostPermissions(
+    config: DomainData,
+  ): Promise<boolean> {
+    return chrome.permissions.contains({ origins: getOriginPatterns(config) });
+  }
+
+  async function removeHostPermissions(domain: DomainData): Promise<void> {
+    const origins = getOriginPatterns(domain);
+    if (origins.length === 0) {
+      return;
+    }
+
+    await chrome.permissions.remove({ origins });
+  }
+
+  function getBlockedDomainForUrl(
+    domains: DomainData[],
+    url: string,
+  ): DomainData | null {
+    try {
+      const parsedUrl = new URL(url);
+      return (
+        domains.find((config) =>
+          domainMatches(parsedUrl.hostname.toLowerCase(), config.url),
+        ) ?? null
+      );
+    } catch {
+      return null;
     }
   }
 
-  return missingPermissions;
-}
-
-export function getBlockedDomainForUrl(
-  options: ExtensionOptions,
-  url: string,
-): BlockedDomainConfig | null {
-  try {
-    const parsedUrl = new URL(url);
-    return (
-      options.blockedDomains.find((config) =>
-        domainMatches(parsedUrl.hostname.toLowerCase(), config.domain),
-      ) ?? null
-    );
-  } catch {
-    return null;
-  }
-}
-
-export function isWhitelistedUrl(
-  config: BlockedDomainConfig,
-  url: string,
-): boolean {
-  try {
-    const parsedUrl = new URL(url);
-    return config.whitelistedPaths.some((pathPrefix) =>
-      pathMatches(parsedUrl.pathname, pathPrefix),
-    );
-  } catch {
-    return false;
-  }
-}
-
-export async function getOptions(): Promise<ExtensionOptions> {
-  const stored = await storageGet<ExtensionOptions>(OPTIONS_STORAGE_KEY);
-  return normalizeOptions(stored[OPTIONS_STORAGE_KEY] ?? DEFAULT_OPTIONS);
-}
-
-export async function saveOptions(options: ExtensionOptions): Promise<void> {
-  const previousOptions = await getOptions();
-  const normalizedOptions = normalizeOptions(options);
-  const configsNeedingPermission = await getConfigsMissingHostPermissions(
-    normalizedOptions.blockedDomains,
-  );
-  const granted =
-    configsNeedingPermission.length === 0 ||
-    (await requestHostPermissions(configsNeedingPermission));
-  if (!granted) {
-    throw new Error("Host permissions were not granted.");
+  function isWhitelistedUrl(
+    config: DomainData,
+    url: string,
+  ): boolean {
+    try {
+      const parsedUrl = new URL(url);
+      return config.whitelistedPaths.some((pathPrefix) =>
+        pathMatches(parsedUrl.pathname, pathPrefix),
+      );
+    } catch {
+      return false;
+    }
   }
 
-  await storageSet<ExtensionOptions>({
-    [OPTIONS_STORAGE_KEY]: normalizedOptions,
-  });
-  const currentIds = new Set(
-    normalizedOptions.blockedDomains.map((config) => config.id),
-  );
-  const removedConfigs = previousOptions.blockedDomains.filter(
-    (config) => !currentIds.has(config.id),
-  );
-  if (removedConfigs.length > 0) {
-    await storageRemove(removedConfigs.map(getStateStorageKey));
-    await removeHostPermissions(removedConfigs);
+  return {
+    getDomains,
+    getContentMatches,
+    getBlockedDomainForUrl,
+    addDomain,
+    removeDomain,
+    updateDomain,
+    isWhitelistedUrl,
+    normalizeUrl,
+    normalizePath,
+    validateUrl,
+    hasHostPermissions,
   }
-  chrome.runtime.sendMessage({ type: "optionsChanged" });
 }
-
-export { DEFAULT_OPTIONS, OPTIONS_STORAGE_KEY };

@@ -5,6 +5,14 @@ export type DialogOptions = {
   message: string;
 };
 
+export type DialogResult = { action: "save"; value: string } | { action: "cancel" };
+
+export type DomainFormElements = {
+  unitInput: HTMLCalciteSelectElement;
+  limitInput: HTMLCalciteInputElement;
+  whitelistInput: HTMLCalciteTextAreaElement;
+};
+
 export type StatusMessage = {
   blocked: boolean;
   showWarning: boolean;
@@ -21,22 +29,21 @@ export type StoredState = {
   blocked: boolean;
 };
 
-export type BlockedDomainConfig = {
+export type DomainData = {
   id: string;
-  domain: string;
+  url: string;
   limitMs: number;
   whitelistedPaths: string[];
 };
 
-export type ExtensionOptions = {
-  blockedDomains: BlockedDomainConfig[];
+export type ExtensionData = {
+  domains: DomainData[];
 };
 
-export type ValidatedDomain = {
-  domain: string;
+export type ValidatedUrl = {
+  url: string;
   error?: "empty" | "duplicate";
-}
-
+};
 
 export type RuntimeMessage = {
   type: "tick" | "getStatus" | "debug" | "optionsChanged";

@@ -11,23 +11,11 @@ import "@esri/calcite-components/components/calcite-option";
 import "@esri/calcite-components/components/calcite-button";
 import "@esri/calcite-components/components/calcite-dialog";
 
-import type { BlockedDomainConfig, ExtensionOptions } from "./types";
-import {
-  getOptions,
-  normalizeDomain,
-  normalizePath,
-  saveOptions,
-  validateDomain,
-} from "./options";
+import type { DomainFormElements, DialogResult, DomainData } from "./types";
+import Options from "./options";
 import "./options.css";
 
-type DomainFormElements = {
-  unitInput: HTMLCalciteSelectElement;
-  limitInput: HTMLCalciteInputElement;
-  whitelistInput: HTMLCalciteTextAreaElement;
-};
-
-type DialogResult = { action: "save"; value: string } | { action: "cancel" };
+const options = Options();
 
 function getElement<T extends HTMLElement>(
   query: string,
@@ -41,20 +29,20 @@ function getElement<T extends HTMLElement>(
   return element as T;
 }
 
-function getDomainFormElements(
+function getDomainFields(
   block: HTMLCalciteBlockElement,
 ): DomainFormElements {
   return {
     unitInput: getElement<HTMLCalciteSelectElement>(
-      "[data-field='unit']",
+      "[name='unit']",
       block,
     ),
     limitInput: getElement<HTMLCalciteInputElement>(
-      "[data-field='limit']",
+      "[name='limit']",
       block,
     ),
     whitelistInput: getElement<HTMLCalciteTextAreaElement>(
-      "[data-field='whitelist']",
+      "[name='whitelist']",
       block,
     ),
   };
@@ -109,20 +97,15 @@ function emitAlert({
   mount.append(alert);
 }
 
-function splitWhitelistedPaths(value: string): string[] {
-  return value
+function splitWhitelistedPaths(value: FormDataEntryValue | null): string[] {
+  const paths = value?.toString() ?? "";
+  return paths
     .split(/\n|,/)
-    .map(normalizePath)
+    .map(options.normalizePath)
     .filter((path) => path.length > 0);
 }
 
-function editDomain({
-  domain = "",
-  create = false,
-}: {
-  domain?: string;
-  create?: boolean;
-}): Promise<DialogResult> {
+function addDialog(): Promise<DialogResult> {
   const dialog = getElement<HTMLCalciteDialogElement>("#edit-dialog");
   const input = getElement<HTMLCalciteInputElement>(
     "#edit-domain-input",
@@ -134,8 +117,7 @@ function editDomain({
     dialog,
   );
 
-  dialog.heading = create ? "Add Domain" : "Edit Domain";
-  input.value = domain;
+  input.value = "";
 
   return new Promise((resolve) => {
     let result: DialogResult = { action: "cancel" };
@@ -150,7 +132,7 @@ function editDomain({
     };
 
     const handleSave = async () => {
-      const { domain, error } = await validateDomain(input.value);
+      const { url, error } = await options.validateUrl(input.value);
 
       if (error) {
         input.setFocus();
@@ -165,7 +147,7 @@ function editDomain({
 
       result = {
         action: "save",
-        value: domain,
+        value: url,
       };
 
       dialog.open = false;
@@ -194,145 +176,156 @@ function editDomain({
 }
 
 function renderDomain({
-  config,
+  domain,
   expanded = false,
 }: {
-  config?: BlockedDomainConfig;
+  domain: DomainData;
   expanded?: boolean;
 }): void {
   const domainGroup = getElement<HTMLCalciteBlockGroupElement>("#domains");
   const template = getElement<HTMLTemplateElement>("#domain-template");
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const block = getElement<HTMLCalciteBlockElement>("calcite-block", fragment);
+  const form = getElement<HTMLFormElement>("form", block);
+  const saveButton = getElement<HTMLCalciteActionElement>(
+    "[data-action='save-changes']",
+    block,
+  );
   const { unitInput, limitInput, whitelistInput } =
-    getDomainFormElements(block);
+    getDomainFields(block);
+
+  const enableSave = () => {
+    saveButton.disabled = false;
+  };
 
   // Setup values
   const limitSeconds = Math.max(
     1,
-    Math.round((config?.limitMs ?? 5 * 60_000) / 1000),
+    Math.round((domain.limitMs ?? 5 * 60_000) / 1000),
   );
   const useMinutes = limitSeconds % 60 === 0;
 
-  block.heading = config?.domain ?? "";
+  block.heading = domain.url ?? "";
   block.expanded = expanded;
-  limitInput.value = String(useMinutes ? limitSeconds / 60 : limitSeconds);
   unitInput.value = useMinutes ? "minutes" : "seconds";
-  whitelistInput.value = config?.whitelistedPaths.join("\n") ?? "";
-
-  // Setup actions
-  getElement<HTMLCalciteActionElement>(
-    "[data-action='edit-domain']",
-    block,
-  ).addEventListener("click", async () => {
-    const result = await editDomain({ domain: block.heading });
-
-    if (result.action === "save") {
-      block.heading = result.value;
-    }
-  });
+  limitInput.value = String(useMinutes ? limitSeconds / 60 : limitSeconds);
+  whitelistInput.value = domain.whitelistedPaths.join("\n") ?? "";
 
   getElement<HTMLCalciteActionElement>(
     "[data-action='delete-domain']",
     block,
-  ).addEventListener("click", () => {
+  ).addEventListener("click", async () => {
     block.remove();
+    await options.removeDomain(domain);
   });
 
-  domainGroup.append(block);
-}
-
-function readOptionsFromForm(): ExtensionOptions {
-  const blocks = Array.from(
-    document.querySelectorAll<HTMLCalciteBlockElement>(
-      "#domains calcite-block",
-    ),
-  );
-  const blockedDomains = blocks.map((block) => {
-    const { unitInput, limitInput, whitelistInput } =
-      getDomainFormElements(block);
-    const domain = normalizeDomain(block.heading);
-    const multiplier = unitInput.value === "seconds" ? 1000 : 60_000;
-    const limitMs = Math.floor(Number(limitInput.value) * multiplier);
-
-    return {
-      id: domain,
-      domain,
-      limitMs,
-      whitelistedPaths: splitWhitelistedPaths(whitelistInput.value),
-    };
-  });
-
-  const emptyDomains = blockedDomains.filter((config) => !config.domain).length;
-  if (emptyDomains > 0) {
-    throw new Error("Each domain needs a value.");
-  }
-
-  const invalidLimits = blockedDomains.filter(
-    (config) => config.limitMs <= 0,
-  ).length;
-  if (invalidLimits > 0) {
-    throw new Error("Each domain needs a time limit greater than zero.");
-  }
-
-  return { blockedDomains };
-}
-
-async function loadOptionsUi(): Promise<void> {
-  const options = await getOptions();
-  const domainsGroup = getElement<HTMLCalciteBlockGroupElement>("#domains");
-  domainsGroup.textContent = "";
-  options.blockedDomains.forEach((config) => renderDomain({ config }));
-}
-
-function setupOptionsUi(): void {
-  getElement<HTMLCalciteActionElement>("#add-domain").addEventListener(
-    "click",
-    async () => {
-      const result = await editDomain({ create: true });
-      if (result.action === "cancel") {
-        return;
-      }
-
-      renderDomain({
-        config: {
-          id: result.value,
-          domain: result.value,
-          limitMs: 5 * 60_000,
-          whitelistedPaths: [],
-        },
-        expanded: true,
-      });
-    },
-  );
-
-  const saveAction = getElement<HTMLCalciteActionElement>("#save");
-  saveAction.addEventListener("click", async () => {
-    saveAction.disabled = true;
-
-    try {
-      await saveOptions(readOptionsFromForm());
-      await loadOptionsUi();
-      emitAlert({
-        title: "Changes saved",
-        message:
-          "If a domain is already open, refresh the tab to load the new changes.",
-        kind: "success",
-      });
-    } catch (error) {
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    saveDomainChanges(formData, domain).then(() => {
+      saveButton.disabled = true;
+    }).catch((error: unknown) => {
       const message =
-        error instanceof Error ? error.message : "Unable to save options.";
+        error instanceof Error ? error.message : "Unable to save changes.";
       emitAlert({
         title: "Sorry, something went wrong",
         message,
         kind: "danger",
       });
-    } finally {
-      saveAction.disabled = false;
-    }
+    })
   });
 
-  loadOptionsUi().catch((error: unknown) => {
+  block.addEventListener("calciteInputInput", enableSave);
+  block.addEventListener("calciteSelectChange", enableSave);
+  block.addEventListener("calciteTextAreaInput", enableSave);
+
+  domainGroup.append(block);
+}
+
+async function saveDomainChanges(
+  formData: FormData,
+  domain: DomainData,
+): Promise<void> {
+  const multiplier = formData.get("unit") === "seconds" ? 1000 : 60_000;
+  const limitMs = Math.floor(Number(formData.get("limit")) * multiplier);
+
+  if (limitMs <= 0) {
+    emitAlert({
+      title: "Please enter a time limit greater than zero.",
+      kind: "warning",
+    });
+    return;
+  }
+
+  const updatedDomain: DomainData = {
+    ...domain,
+    limitMs,
+    whitelistedPaths: splitWhitelistedPaths(formData.get("whitelist")),
+  };
+
+  const { error } = await options.updateDomain(updatedDomain);
+
+  if (error) {
+    emitAlert({
+      title: "Unable to save changes",
+      message: error,
+      kind: "danger",
+    });
+    return;
+  }
+
+  emitAlert({
+    title: "Changes saved",
+    message:
+      "If a domain is already open, refresh the tab to load the new changes.",
+    kind: "success",
+  });
+}
+
+async function createDomainEntry(): Promise<void> {
+  const result = await addDialog();
+  if (result.action === "cancel") {
+    return;
+  }
+
+  const domain = {
+    id: crypto.randomUUID(),
+    url: result.value,
+    limitMs: 5 * 60_000,
+    whitelistedPaths: [],
+  };
+
+  const { error } = await options.addDomain(domain);
+
+  if (error) {
+    emitAlert({
+      title: "Unable to add domain",
+      message: error,
+      kind: "danger",
+    });
+    return;
+  }
+
+  renderDomain({
+    domain,
+    expanded: true,
+  });
+}
+
+async function renderUi(): Promise<void> {
+  const domainsElement = getElement<HTMLCalciteBlockGroupElement>("#domains");
+  domainsElement.textContent = "";
+
+  const domains = await options.getDomains()
+  domains.forEach((domain) => {
+    renderDomain({ domain });
+  });
+}
+
+function setupOptionsUi(): void {
+  getElement<HTMLCalciteActionElement>("#add-domain").addEventListener("click", createDomainEntry);
+
+  renderUi().catch((error: unknown) => {
     const message =
       error instanceof Error ? error.message : "Unable to load options.";
     emitAlert({
