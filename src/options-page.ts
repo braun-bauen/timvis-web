@@ -111,7 +111,7 @@ function addDialog(): Promise<DialogResult> {
     "#edit-domain-input",
     dialog,
   );
-  const saveButton = getElement<HTMLCalciteButtonElement>("#edit-save", dialog);
+  const formEl = getElement<HTMLFormElement>("#add-domain-form", dialog);
   const cancelButton = getElement<HTMLCalciteButtonElement>(
     "#edit-cancel",
     dialog,
@@ -123,7 +123,7 @@ function addDialog(): Promise<DialogResult> {
     let result: DialogResult = { action: "cancel" };
 
     const cleanup = () => {
-      saveButton.removeEventListener("click", handleSave);
+      formEl.removeEventListener("submit", handleSave);
       cancelButton.removeEventListener("click", handleCancel);
       dialog.removeEventListener("calciteDialogClose", handleClose);
       dialog
@@ -131,7 +131,8 @@ function addDialog(): Promise<DialogResult> {
         .forEach((alert) => alert.remove());
     };
 
-    const handleSave = async () => {
+    const handleSave = async (e: SubmitEvent) => {
+      e.preventDefault();
       const { url, error } = await options.validateUrl(input.value);
 
       if (error) {
@@ -162,7 +163,7 @@ function addDialog(): Promise<DialogResult> {
       resolve(result);
     };
 
-    saveButton.addEventListener("click", handleSave);
+    formEl.addEventListener("submit", handleSave);
     cancelButton.addEventListener("click", handleCancel);
     dialog.addEventListener("calciteDialogClose", handleClose, {
       once: true,
