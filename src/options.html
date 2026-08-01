@@ -26,18 +26,26 @@
         <calcite-block-group id="domains"></calcite-block-group>
 
         <calcite-dialog id="edit-dialog" heading="Add domain" modal>
-          <calcite-input
-            id="edit-domain-input"
-            label="Domain name"
-          ></calcite-input>
+          <form id="add-domain-form">
+            <calcite-input
+              id="edit-domain-input"
+              label="Domain name"
+            ></calcite-input>
+          </form>
           <calcite-button
             id="edit-cancel"
+            form="add-domain-form"
             slot="footer-end"
             appearance="outline"
           >
             Cancel
           </calcite-button>
-          <calcite-button id="edit-save" slot="footer-end">
+          <calcite-button
+            id="edit-save"
+            form="add-domain-form"
+            type="submit"
+            slot="footer-end"
+          >
             Save
           </calcite-button>
         </calcite-dialog>
