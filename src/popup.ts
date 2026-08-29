@@ -43,7 +43,9 @@ function updateStatus(status: StatusMessage | undefined): void {
   }
 
   if (status.blocked) {
-    statusEl.textContent = "Blocked for this hour";
+    statusEl.textContent = status.downtime
+      ? "In downtime."
+      : "Blocked for this hour";
     statusEl.classList.add("block");
     return;
   }

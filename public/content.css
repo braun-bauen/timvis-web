@@ -6,6 +6,7 @@
   border-color: var(--tt-background);
   border-radius: 1rem;
   padding: 2.5rem;
+  margin: auto;
   font-size: 1.25rem;
   font-family: system-ui, sans-serif;
 

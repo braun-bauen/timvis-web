@@ -1,6 +1,10 @@
-import type { DomainData, ExtensionData, ValidatedUrl } from "./types";
+import type {
+  DomainData,
+  DowntimeRule,
+  ExtensionData,
+  ValidatedUrl,
+} from "./types";
 import { storageGet, storageRemove, storageSet } from "./utils";
-
 
 export default function Options() {
   const OPTIONS_STORAGE_KEY = "timvis_options";
@@ -9,18 +13,21 @@ export default function Options() {
   async function getData(): Promise<ExtensionData> {
     const stored = await storageGet<ExtensionData>(OPTIONS_STORAGE_KEY);
     const data = stored[OPTIONS_STORAGE_KEY] ?? {
-      domains: []
-    }
+      domains: [],
+    };
 
     return normalizeData(data);
   }
 
-  async function save(data: ExtensionData): Promise<void> {
+  async function save(
+    data: ExtensionData,
+    addedDomain?: string,
+  ): Promise<void> {
     await storageSet<ExtensionData>({
       [OPTIONS_STORAGE_KEY]: normalizeData(data),
     });
 
-    chrome.runtime.sendMessage({ type: "optionsChanged" });
+    chrome.runtime.sendMessage({ type: "optionsChanged", addedDomain });
   }
 
   async function getDomains(): Promise<DomainData[]> {
@@ -42,10 +49,12 @@ export default function Options() {
 
     const granted = await requestHostPermissions(domain);
     if (!granted) {
-      return { error: `Host permissions were not granted for domain: ${domain.url}` };
+      return {
+        error: `Host permissions were not granted for domain: ${domain.url}`,
+      };
     }
 
-    await save(data);
+    await save(data, domain.url);
     return { error: undefined };
   }
 
@@ -80,7 +89,7 @@ export default function Options() {
         if (await hasHostPermissions(domain)) {
           getOriginPatterns(domain).forEach((pattern) => matches.add(pattern));
         }
-      })
+      }),
     );
 
     return Array.from(matches);
@@ -91,7 +100,9 @@ export default function Options() {
       .map(normalizeDomain)
       .filter((config): config is DomainData => config !== null);
 
-    const uniqueByUrl = new Map(normalized.map((domain) => [domain.url, domain]));
+    const uniqueByUrl = new Map(
+      normalized.map((domain) => [domain.url, domain]),
+    );
     return { domains: Array.from(uniqueByUrl.values()) };
   }
 
@@ -129,9 +140,7 @@ export default function Options() {
     return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
   }
 
-  function normalizeDomain(
-    config: Partial<DomainData>,
-  ): DomainData | null {
+  function normalizeDomain(config: Partial<DomainData>): DomainData | null {
     const domain = normalizeUrl(config.url ?? "");
     if (!domain) {
       return null;
@@ -153,6 +162,26 @@ export default function Options() {
             .filter((path) => path.length > 0),
         ),
       ),
+      downtimeRules: (config.downtimeRules ?? []).map(normalizeDowntimeRule),
+    };
+  }
+
+  function normalizeDowntimeRule(rule: Partial<DowntimeRule>): DowntimeRule {
+    return {
+      id: String(rule.id || crypto.randomUUID()),
+      weekdays: Array.from(new Set((rule.weekdays ?? []).map(Number))).filter(
+        (day) => Number.isInteger(day) && day >= 0 && day <= 6,
+      ),
+      startMinutes: Math.min(
+        1439,
+        Math.max(0, Math.floor(Number(rule.startMinutes) || 0)),
+      ),
+      endMinutes: Math.min(
+        1439,
+        Math.max(0, Math.floor(Number(rule.endMinutes) || 0)),
+      ),
+      allDay: Boolean(rule.allDay),
+      allowWhitelistedPaths: Boolean(rule.allowWhitelistedPaths),
     };
   }
 
@@ -177,9 +206,7 @@ export default function Options() {
     ];
   }
 
-  async function requestHostPermissions(
-    domain: DomainData,
-  ): Promise<boolean> {
+  async function requestHostPermissions(domain: DomainData): Promise<boolean> {
     const origins = getOriginPatterns(domain);
     if (origins.length === 0) {
       return false;
@@ -193,9 +220,7 @@ export default function Options() {
     return chrome.permissions.request({ origins });
   }
 
-  async function hasHostPermissions(
-    config: DomainData,
-  ): Promise<boolean> {
+  async function hasHostPermissions(config: DomainData): Promise<boolean> {
     return chrome.permissions.contains({ origins: getOriginPatterns(config) });
   }
 
@@ -224,10 +249,7 @@ export default function Options() {
     }
   }
 
-  function isWhitelistedUrl(
-    config: DomainData,
-    url: string,
-  ): boolean {
+  function isWhitelistedUrl(config: DomainData, url: string): boolean {
     try {
       const parsedUrl = new URL(url);
       return config.whitelistedPaths.some((pathPrefix) =>
@@ -250,5 +272,6 @@ export default function Options() {
     normalizePath,
     validateUrl,
     hasHostPermissions,
-  }
+    getOriginPatterns,
+  };
 }

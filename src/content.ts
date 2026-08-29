@@ -7,10 +7,22 @@ let ticking = false;
 let warningShown = false;
 let blocked = false;
 let limitReached = false;
+let inDowntime = false;
 let whitelisted = false;
 let blockedDomain = "this site";
 let domainConfigId: string | undefined;
 let lastUrl = window.location.href;
+let lastStatusMinute = "";
+
+function getMinuteKey(date = new Date()): string {
+  return [
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+  ].join(":");
+}
 
 function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   const dialog = document.createElement("dialog");
@@ -87,7 +99,7 @@ function showBlock(): void {
 
   const dialog = createDialog({
     type: "block",
-    message: `${blockedDomain} is blocked for the rest of this hour.`,
+    message: `${blockedDomain} is ${inDowntime ? "in downtime" : "blocked for the rest of this hour"}.`,
   });
 
   dialog.showModal();
@@ -143,12 +155,16 @@ function startTicking(): void {
       { type: "tick", elapsedMs: elapsed, url: window.location.href },
       () => {
         void chrome.runtime.lastError;
+        if (getMinuteKey() !== lastStatusMinute) {
+          refreshStatus();
+        }
       },
     );
   }, TICK_INTERVAL_MS);
 }
 
 function refreshStatus(): void {
+  lastStatusMinute = getMinuteKey();
   chrome.runtime.sendMessage(
     { type: "getStatus", url: window.location.href },
     (status: StatusMessage | undefined) => {
@@ -157,6 +173,7 @@ function refreshStatus(): void {
       }
       if (status.debug) {
         limitReached = false;
+        inDowntime = false;
         whitelisted = false;
         removeBlock();
         return;
@@ -173,7 +190,12 @@ function refreshStatus(): void {
         setWarningOpen(true);
       }
 
+      const reasonChanged = inDowntime !== status.downtime;
       limitReached = status.blocked;
+      inDowntime = status.downtime;
+      if (reasonChanged) {
+        removeBlock();
+      }
       handleBlock();
     },
   );
@@ -199,6 +221,9 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     setWarningOpen(false);
     removeBlock();
   }
+  if (actionMessage === "refresh") {
+    refreshStatus();
+  }
 });
 
 startTicking();
@@ -210,4 +235,4 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-export { };
+export {};

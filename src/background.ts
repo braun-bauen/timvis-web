@@ -8,6 +8,7 @@ import type {
   StoredState,
 } from "./types";
 import { storageGet, storageSet } from "./utils";
+import { evaluateDowntimeAccess } from "./downtime";
 
 const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
@@ -104,6 +105,39 @@ async function sendMessageToDomainTabs(
   }
 }
 
+async function refreshOrInjectNewDomainTabs(domain: string): Promise<void> {
+  const config = (await options.getDomains()).find(
+    (candidate) => candidate.url === domain,
+  );
+  if (!config) {
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({
+    url: options.getOriginPatterns(config),
+  });
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (!tab.id) {
+        return;
+      }
+
+      try {
+        await chrome.tabs.sendMessage(tab.id, "refresh");
+      } catch {
+        await chrome.scripting.insertCSS({
+          target: { tabId: tab.id },
+          files: ["content.css"],
+        });
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        });
+      }
+    }),
+  );
+}
+
 async function getConfigForUrl(
   url: string | undefined,
 ): Promise<DomainData | null> {
@@ -124,11 +158,16 @@ async function handleTick(
   }
 
   const config = await getConfigForUrl(url);
-  if (!config || !url || options.isWhitelistedUrl(config, url)) {
+  if (!config || !url) {
     return;
   }
 
   const state = await getState(config);
+  const whitelisted = options.isWhitelistedUrl(config, url);
+  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
+  if (state.blocked || !access.shouldTrackUsage) {
+    return;
+  }
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   state.usedMs += elapsedMs;
 
@@ -143,10 +182,13 @@ async function handleTick(
   await saveState(config, state);
 }
 
-async function handleGetStatus(url: string | undefined): Promise<StatusMessage> {
+async function handleGetStatus(
+  url: string | undefined,
+): Promise<StatusMessage> {
   if (env.debug) {
     return {
       blocked: false,
+      downtime: false,
       showWarning: false,
       debug: true,
       whitelisted: false,
@@ -157,6 +199,7 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
   if (!config || !url) {
     return {
       blocked: false,
+      downtime: false,
       showWarning: false,
       debug: false,
       whitelisted: false,
@@ -165,11 +208,13 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
 
   const whitelisted = options.isWhitelistedUrl(config, url);
   const state = await getState(config);
+  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
 
   if (
     !whitelisted &&
+    !access.downtimeBlocked &&
     warnAtMs > 0 &&
     !state.blocked &&
     state.usedMs >= warnAtMs &&
@@ -181,10 +226,11 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
   }
 
   return {
-    blocked: !whitelisted && state.blocked,
+    blocked: access.downtimeBlocked || (!whitelisted && state.blocked),
+    downtime: access.downtimeBlocked,
     showWarning,
     debug: false,
-    whitelisted,
+    whitelisted: access.accessibleByWhitelist,
     domainConfigId: config.id,
     domain: config.url,
   };
@@ -213,7 +259,7 @@ async function handleDebugAction(
   await Promise.all(
     domains.map(async (config) => {
       await sendMessageToDomainTabs(config, action);
-    })
+    }),
   );
 
   return { ok: true };
@@ -248,6 +294,7 @@ chrome.runtime.onMessage.addListener(
         .catch(() =>
           sendResponse({
             blocked: false,
+            downtime: false,
             showWarning: false,
             debug: false,
             whitelisted: false,
@@ -265,7 +312,22 @@ chrome.runtime.onMessage.addListener(
 
     if (runtimeMessage.type === "optionsChanged") {
       registerContentScripts()
-        .then(() => sendResponse({ ok: true }))
+        .then(async () => {
+          if (runtimeMessage.addedDomain) {
+            await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
+          } else {
+            const domains = await options.getDomains();
+            const tabs = await chrome.tabs.query({
+              url: ["http://*/*", "https://*/*"],
+            });
+            tabs.forEach((tab) => {
+              if (tab.url && options.getBlockedDomainForUrl(domains, tab.url)) {
+                sendMessageToTab(tab.id, "refresh");
+              }
+            });
+          }
+          sendResponse({ ok: true });
+        })
         .catch(() => sendResponse({ ok: false }));
       return true;
     }
@@ -282,4 +344,4 @@ chrome.runtime.onStartup.addListener(() => {
   registerContentScripts().catch(() => undefined);
 });
 
-export { };
+export {};
