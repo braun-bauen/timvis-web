@@ -4,6 +4,7 @@ import "@esri/calcite-components/components/calcite-block";
 import "@esri/calcite-components/components/calcite-block-group";
 import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-action";
+import "@esri/calcite-components/components/calcite-action-group";
 import "@esri/calcite-components/components/calcite-input";
 import "@esri/calcite-components/components/calcite-icon";
 import "@esri/calcite-components/components/calcite-text-area";
@@ -24,9 +25,42 @@ import type {
 } from "./types";
 import Options from "./options";
 import { isValidDowntimeRule } from "./downtime";
+import {
+  isThemePreference,
+  setThemePreference,
+  setupTheme,
+  type ThemePreference,
+} from "./theme";
 import "./options.css";
 
 const options = Options();
+
+function updateThemeActions(preference: ThemePreference): void {
+  document
+    .querySelectorAll<HTMLCalciteActionElement>("[data-theme]")
+    .forEach((action) => {
+      const isActive = action.dataset.theme === preference;
+      action.active = isActive;
+    });
+}
+
+function setupThemeActions(): void {
+  document
+    .querySelectorAll<HTMLCalciteActionElement>("[data-theme]")
+    .forEach((action) => {
+      action.addEventListener("click", () => {
+        const preference = action.dataset.theme;
+        if (!isThemePreference(preference)) {
+          return;
+        }
+
+        updateThemeActions(preference);
+        void setThemePreference(preference);
+      });
+    });
+
+  void setupTheme(updateThemeActions);
+}
 
 function getElement<T extends HTMLElement>(
   query: string,
@@ -449,6 +483,7 @@ async function renderUi(): Promise<void> {
 }
 
 function setupOptionsUi(): void {
+  setupThemeActions();
   getElement<HTMLCalciteActionElement>("#add-domain").addEventListener(
     "click",
     createDomainEntry,

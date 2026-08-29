@@ -10,9 +10,32 @@ html {
 }
 
 :root {
-  --calcite-color-brand: hsl(235 18 36);
-  --calcite-color-brand-hover: hsl(235 18 30);
-  --calcite-color-brand-press: hsl(235 18 20);
+  --timvis-brand-hue: 235;
+  --timvis-brand-saturation: 18%;
+  --timvis-brand-lightness: 36%;
+  --timvis-brand-lightness-hover: 30%;
+  --timvis-brand-lightness-press: 20%;
+
+  --calcite-color-brand: hsl(
+    var(--timvis-brand-hue) var(--timvis-brand-saturation)
+      var(--timvis-brand-lightness)
+  );
+  --calcite-color-brand-hover: hsl(
+    var(--timvis-brand-hue) var(--timvis-brand-saturation)
+      var(--timvis-brand-lightness-hover)
+  );
+  --calcite-color-brand-press: hsl(
+    var(--timvis-brand-hue) var(--timvis-brand-saturation)
+      var(--timvis-brand-lightness-press)
+  );
+}
+
+.calcite-mode-dark {
+  --timvis-brand-hue: 234;
+  --timvis-brand-saturation: 24%;
+  --timvis-brand-lightness: 68%;
+  --timvis-brand-lightness-hover: 76%;
+  --timvis-brand-lightness-press: 82%;
 }
 
 .action-brand {

@@ -1,3 +1,5 @@
+@import "@esri/calcite-components/main.css";
+
 * {
   box-sizing: border-box;
 }
@@ -8,6 +10,8 @@ body {
   min-width: 260px;
   font-family:
     "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
+  color: var(--calcite-color-text-1);
+  background: var(--calcite-color-foreground-1);
 }
 
 #title {
@@ -40,10 +44,12 @@ body {
   }
 
   button {
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--calcite-color-border-1);
     border-radius: 10px;
     padding: 0.5rem;
     font: inherit;
+    color: var(--calcite-color-text-1);
+    background: var(--calcite-color-foreground-2);
     cursor: pointer;
   }
 }
