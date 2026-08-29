@@ -44,9 +44,7 @@ function updateStatus(status: StatusMessage | undefined): void {
   }
 
   if (status.blocked) {
-    statusEl.textContent = status.downtime
-      ? "In downtime."
-      : "Blocked for this hour";
+    statusEl.textContent = status.downtime ? "In downtime." : "Blocked for this hour";
     statusEl.classList.add("block");
     return;
   }
@@ -54,12 +52,9 @@ function updateStatus(status: StatusMessage | undefined): void {
 
 function refreshStatus(): void {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    chrome.runtime.sendMessage(
-      { type: "getStatus", url: tab?.url },
-      (status: StatusMessage) => {
-        updateStatus(status);
-      },
-    );
+    chrome.runtime.sendMessage({ type: "getStatus", url: tab?.url }, (status: StatusMessage) => {
+      updateStatus(status);
+    });
   });
 }
 

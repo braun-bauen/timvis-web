@@ -8,8 +8,7 @@ body {
   margin: 0;
   padding: 18px;
   min-width: 260px;
-  font-family:
-    "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
+  font-family: "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
   color: var(--calcite-color-text-1);
   background: var(--calcite-color-foreground-1);
 }

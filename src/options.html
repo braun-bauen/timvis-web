@@ -20,16 +20,8 @@
           label="Color theme"
           selection-mode="single-persist"
         >
-          <calcite-action
-            data-theme="light"
-            text="Light theme"
-            icon="brightness"
-          ></calcite-action>
-          <calcite-action
-            data-theme="dark"
-            text="Dark theme"
-            icon="moon"
-          ></calcite-action>
+          <calcite-action data-theme="light" text="Light theme" icon="brightness"></calcite-action>
+          <calcite-action data-theme="dark" text="Dark theme" icon="moon"></calcite-action>
           <calcite-action
             data-theme="system"
             text="Use system theme"
@@ -50,10 +42,7 @@
 
         <calcite-dialog id="edit-dialog" heading="Add domain" modal>
           <form id="add-domain-form">
-            <calcite-input
-              id="edit-domain-input"
-              label="Domain name"
-            ></calcite-input>
+            <calcite-input id="edit-domain-input" label="Domain name"></calcite-input>
           </form>
           <calcite-button
             id="edit-cancel"
@@ -63,12 +52,7 @@
           >
             Cancel
           </calcite-button>
-          <calcite-button
-            id="edit-save"
-            form="add-domain-form"
-            type="submit"
-            slot="footer-end"
-          >
+          <calcite-button id="edit-save" form="add-domain-form" type="submit" slot="footer-end">
             Save
           </calcite-button>
         </calcite-dialog>
@@ -115,9 +99,7 @@
           ></calcite-text-area>
           <div>
             <div class="downtime-header">Downtime</div>
-            <div>
-              Completely block this domain on recurring weekly schedules.
-            </div>
+            <div>Completely block this domain on recurring weekly schedules.</div>
           </div>
           <div class="downtime">
             <div class="downtime-rules"></div>
@@ -175,10 +157,7 @@
           </div>
 
           <div class="downtime-flex">
-            <calcite-switch
-              data-switch="all-day"
-              label-text-end="All day"
-            ></calcite-switch>
+            <calcite-switch data-switch="all-day" label-text-end="All day"></calcite-switch>
             <calcite-switch
               data-switch="allow-whitelist"
               label-text-end="Allow whitelisted paths"

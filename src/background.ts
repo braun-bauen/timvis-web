@@ -1,12 +1,6 @@
 import { env } from "./env";
 import Options from "./options";
-import type {
-  Action,
-  DomainData,
-  RuntimeMessage,
-  StatusMessage,
-  StoredState,
-} from "./types";
+import type { Action, DomainData, RuntimeMessage, StatusMessage, StoredState } from "./types";
 import { storageGet, storageSet } from "./utils";
 import { evaluateDowntimeAccess } from "./downtime";
 
@@ -73,17 +67,11 @@ async function getState(config: DomainData): Promise<StoredState> {
   };
 }
 
-async function saveState(
-  config: DomainData,
-  state: StoredState,
-): Promise<void> {
+async function saveState(config: DomainData, state: StoredState): Promise<void> {
   await storageSet<StoredState>({ [getStateStorageKey(config)]: state });
 }
 
-function sendMessageToTab(
-  tabId: number | undefined | null,
-  message: Action,
-): void {
+function sendMessageToTab(tabId: number | undefined | null, message: Action): void {
   if (!tabId) {
     return;
   }
@@ -93,10 +81,7 @@ function sendMessageToTab(
   });
 }
 
-async function sendMessageToDomainTabs(
-  config: DomainData,
-  message: Action,
-): Promise<void> {
+async function sendMessageToDomainTabs(config: DomainData, message: Action): Promise<void> {
   const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
   for (const tab of tabs) {
     if (tab.url && options.getBlockedDomainForUrl([config], tab.url)) {
@@ -106,9 +91,7 @@ async function sendMessageToDomainTabs(
 }
 
 async function refreshOrInjectNewDomainTabs(domain: string): Promise<void> {
-  const config = (await options.getDomains()).find(
-    (candidate) => candidate.url === domain,
-  );
+  const config = (await options.getDomains()).find((candidate) => candidate.url === domain);
   if (!config) {
     return;
   }
@@ -138,9 +121,7 @@ async function refreshOrInjectNewDomainTabs(domain: string): Promise<void> {
   );
 }
 
-async function getConfigForUrl(
-  url: string | undefined,
-): Promise<DomainData | null> {
+async function getConfigForUrl(url: string | undefined): Promise<DomainData | null> {
   if (!url) {
     return null;
   }
@@ -182,9 +163,7 @@ async function handleTick(
   await saveState(config, state);
 }
 
-async function handleGetStatus(
-  url: string | undefined,
-): Promise<StatusMessage> {
+async function handleGetStatus(url: string | undefined): Promise<StatusMessage> {
   if (env.debug) {
     return {
       blocked: false,
@@ -236,9 +215,7 @@ async function handleGetStatus(
   };
 }
 
-async function handleDebugAction(
-  action: Action | undefined,
-): Promise<{ ok: boolean }> {
+async function handleDebugAction(action: Action | undefined): Promise<{ ok: boolean }> {
   if (!env.debug || !action) {
     return { ok: false };
   }
@@ -265,76 +242,74 @@ async function handleDebugAction(
   return { ok: true };
 }
 
-chrome.runtime.onMessage.addListener(
-  (message: unknown, sender, sendResponse) => {
-    if (
-      !message ||
-      typeof message !== "object" ||
-      !("type" in message) ||
-      typeof message.type !== "string"
-    ) {
-      return false;
-    }
-
-    const runtimeMessage = message as RuntimeMessage;
-
-    if (runtimeMessage.type === "tick") {
-      const elapsedMs = Math.max(0, Number(runtimeMessage.elapsedMs) || 0);
-      const senderTabId = sender?.tab?.id ?? null;
-      const url = runtimeMessage.url ?? sender?.tab?.url;
-      handleTick(elapsedMs, senderTabId, url)
-        .then(() => sendResponse({ ok: true }))
-        .catch(() => sendResponse({ ok: false }));
-      return true;
-    }
-
-    if (runtimeMessage.type === "getStatus") {
-      handleGetStatus(runtimeMessage.url ?? sender?.tab?.url)
-        .then((status) => sendResponse(status))
-        .catch(() =>
-          sendResponse({
-            blocked: false,
-            downtime: false,
-            showWarning: false,
-            debug: false,
-            whitelisted: false,
-          } as StatusMessage),
-        );
-      return true;
-    }
-
-    if (runtimeMessage.type === "debug") {
-      handleDebugAction(runtimeMessage.action)
-        .then((result) => sendResponse(result))
-        .catch(() => sendResponse({ ok: false }));
-      return true;
-    }
-
-    if (runtimeMessage.type === "optionsChanged") {
-      registerContentScripts()
-        .then(async () => {
-          if (runtimeMessage.addedDomain) {
-            await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
-          } else {
-            const domains = await options.getDomains();
-            const tabs = await chrome.tabs.query({
-              url: ["http://*/*", "https://*/*"],
-            });
-            tabs.forEach((tab) => {
-              if (tab.url && options.getBlockedDomainForUrl(domains, tab.url)) {
-                sendMessageToTab(tab.id, "refresh");
-              }
-            });
-          }
-          sendResponse({ ok: true });
-        })
-        .catch(() => sendResponse({ ok: false }));
-      return true;
-    }
-
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  if (
+    !message ||
+    typeof message !== "object" ||
+    !("type" in message) ||
+    typeof message.type !== "string"
+  ) {
     return false;
-  },
-);
+  }
+
+  const runtimeMessage = message as RuntimeMessage;
+
+  if (runtimeMessage.type === "tick") {
+    const elapsedMs = Math.max(0, Number(runtimeMessage.elapsedMs) || 0);
+    const senderTabId = sender?.tab?.id ?? null;
+    const url = runtimeMessage.url ?? sender?.tab?.url;
+    handleTick(elapsedMs, senderTabId, url)
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
+  if (runtimeMessage.type === "getStatus") {
+    handleGetStatus(runtimeMessage.url ?? sender?.tab?.url)
+      .then((status) => sendResponse(status))
+      .catch(() =>
+        sendResponse({
+          blocked: false,
+          downtime: false,
+          showWarning: false,
+          debug: false,
+          whitelisted: false,
+        } as StatusMessage),
+      );
+    return true;
+  }
+
+  if (runtimeMessage.type === "debug") {
+    handleDebugAction(runtimeMessage.action)
+      .then((result) => sendResponse(result))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
+  if (runtimeMessage.type === "optionsChanged") {
+    registerContentScripts()
+      .then(async () => {
+        if (runtimeMessage.addedDomain) {
+          await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
+        } else {
+          const domains = await options.getDomains();
+          const tabs = await chrome.tabs.query({
+            url: ["http://*/*", "https://*/*"],
+          });
+          tabs.forEach((tab) => {
+            if (tab.url && options.getBlockedDomainForUrl(domains, tab.url)) {
+              sendMessageToTab(tab.id, "refresh");
+            }
+          });
+        }
+        sendResponse({ ok: true });
+      })
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
+  return false;
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   registerContentScripts().catch(() => undefined);
@@ -343,5 +318,3 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(() => {
   registerContentScripts().catch(() => undefined);
 });
-
-export {};

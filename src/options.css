@@ -17,16 +17,13 @@ html {
   --timvis-brand-lightness-press: 20%;
 
   --calcite-color-brand: hsl(
-    var(--timvis-brand-hue) var(--timvis-brand-saturation)
-      var(--timvis-brand-lightness)
+    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness)
   );
   --calcite-color-brand-hover: hsl(
-    var(--timvis-brand-hue) var(--timvis-brand-saturation)
-      var(--timvis-brand-lightness-hover)
+    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness-hover)
   );
   --calcite-color-brand-press: hsl(
-    var(--timvis-brand-hue) var(--timvis-brand-saturation)
-      var(--timvis-brand-lightness-press)
+    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness-press)
   );
 }
 
@@ -58,8 +55,7 @@ calcite-block > form {
   }
 
   .downtime {
-    border: var(--calcite-border-width-sm) solid
-      var(--calcite-color-border-input);
+    border: var(--calcite-border-width-sm) solid var(--calcite-color-border-input);
     padding-block: var(--calcite-spacing-sm);
     padding-inline: var(--calcite-spacing-md);
   }

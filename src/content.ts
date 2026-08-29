@@ -234,5 +234,3 @@ document.addEventListener("visibilitychange", () => {
     refreshStatus();
   }
 });
-
-export {};

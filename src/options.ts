@@ -1,9 +1,4 @@
-import type {
-  DomainData,
-  DowntimeRule,
-  ExtensionData,
-  ValidatedUrl,
-} from "./types";
+import type { DomainData, DowntimeRule, ExtensionData, ValidatedUrl } from "./types";
 import { storageGet, storageRemove, storageSet } from "./utils";
 
 export default function Options() {
@@ -19,10 +14,7 @@ export default function Options() {
     return normalizeData(data);
   }
 
-  async function save(
-    data: ExtensionData,
-    addedDomain?: string,
-  ): Promise<void> {
+  async function save(data: ExtensionData, addedDomain?: string): Promise<void> {
     await storageSet<ExtensionData>({
       [OPTIONS_STORAGE_KEY]: normalizeData(data),
     });
@@ -63,10 +55,7 @@ export default function Options() {
     data.domains = data.domains.filter((config) => config.id !== domain.id);
     await save(data);
 
-    await Promise.all([
-      storageRemove([getStateStorageKey(domain)]),
-      removeHostPermissions(domain),
-    ]);
+    await Promise.all([storageRemove([getStateStorageKey(domain)]), removeHostPermissions(domain)]);
   }
 
   async function updateDomain(domain: DomainData): Promise<{ error?: string }> {
@@ -100,9 +89,7 @@ export default function Options() {
       .map(normalizeDomain)
       .filter((config): config is DomainData => config !== null);
 
-    const uniqueByUrl = new Map(
-      normalized.map((domain) => [domain.url, domain]),
-    );
+    const uniqueByUrl = new Map(normalized.map((domain) => [domain.url, domain]));
     return { domains: Array.from(uniqueByUrl.values()) };
   }
 
@@ -157,9 +144,7 @@ export default function Options() {
       limitMs,
       whitelistedPaths: Array.from(
         new Set(
-          (config.whitelistedPaths ?? [])
-            .map(normalizePath)
-            .filter((path) => path.length > 0),
+          (config.whitelistedPaths ?? []).map(normalizePath).filter((path) => path.length > 0),
         ),
       ),
       downtimeRules: (config.downtimeRules ?? []).map(normalizeDowntimeRule),
@@ -172,14 +157,8 @@ export default function Options() {
       weekdays: Array.from(new Set((rule.weekdays ?? []).map(Number))).filter(
         (day) => Number.isInteger(day) && day >= 0 && day <= 6,
       ),
-      startMinutes: Math.min(
-        1439,
-        Math.max(0, Math.floor(Number(rule.startMinutes) || 0)),
-      ),
-      endMinutes: Math.min(
-        1439,
-        Math.max(0, Math.floor(Number(rule.endMinutes) || 0)),
-      ),
+      startMinutes: Math.min(1439, Math.max(0, Math.floor(Number(rule.startMinutes) || 0))),
+      endMinutes: Math.min(1439, Math.max(0, Math.floor(Number(rule.endMinutes) || 0))),
       allDay: Boolean(rule.allDay),
       allowWhitelistedPaths: Boolean(rule.allowWhitelistedPaths),
     };
@@ -233,16 +212,12 @@ export default function Options() {
     await chrome.permissions.remove({ origins });
   }
 
-  function getBlockedDomainForUrl(
-    domains: DomainData[],
-    url: string,
-  ): DomainData | null {
+  function getBlockedDomainForUrl(domains: DomainData[], url: string): DomainData | null {
     try {
       const parsedUrl = new URL(url);
       return (
-        domains.find((config) =>
-          domainMatches(parsedUrl.hostname.toLowerCase(), config.url),
-        ) ?? null
+        domains.find((config) => domainMatches(parsedUrl.hostname.toLowerCase(), config.url)) ??
+        null
       );
     } catch {
       return null;
