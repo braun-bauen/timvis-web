@@ -17,55 +17,38 @@ import "@esri/calcite-components/components/calcite-chip-group";
 import "@esri/calcite-components/components/calcite-input-time-picker";
 import "@esri/calcite-components/components/calcite-switch";
 
-import type {
-  DomainFormElements,
-  DialogResult,
-  DomainData,
-  DowntimeRule,
-} from "./types";
+import type { DomainFormElements, DialogResult, DomainData, DowntimeRule } from "./types";
 import Options from "./options";
 import { isValidDowntimeRule } from "./downtime";
-import {
-  isThemePreference,
-  setThemePreference,
-  setupTheme,
-  type ThemePreference,
-} from "./theme";
+import { isThemePreference, setThemePreference, setupTheme, type ThemePreference } from "./theme";
 import "./options.css";
 
 const options = Options();
 
 function updateThemeActions(preference: ThemePreference): void {
-  document
-    .querySelectorAll<HTMLCalciteActionElement>("[data-theme]")
-    .forEach((action) => {
-      const isActive = action.dataset.theme === preference;
-      action.active = isActive;
-    });
+  document.querySelectorAll<HTMLCalciteActionElement>("[data-theme]").forEach((action) => {
+    const isActive = action.dataset.theme === preference;
+    action.active = isActive;
+  });
 }
 
 function setupThemeActions(): void {
-  document
-    .querySelectorAll<HTMLCalciteActionElement>("[data-theme]")
-    .forEach((action) => {
-      action.addEventListener("click", () => {
-        const preference = action.dataset.theme;
-        if (!isThemePreference(preference)) {
-          return;
-        }
+  document.querySelectorAll<HTMLCalciteActionElement>("[data-theme]").forEach((action) => {
+    action.addEventListener("click", () => {
+      const preference = action.dataset.theme;
+      if (!isThemePreference(preference)) {
+        return;
+      }
 
-        updateThemeActions(preference);
-        void setThemePreference(preference);
-      });
+      updateThemeActions(preference);
+      void setThemePreference(preference);
     });
+  });
 
   void setupTheme(updateThemeActions);
 }
 
-function getElement<T extends HTMLElement>(
-  query: string,
-  root?: Element | DocumentFragment,
-): T {
+function getElement<T extends HTMLElement>(query: string, root?: Element | DocumentFragment): T {
   const queryRoot = root ?? document;
   const element = queryRoot.querySelector(query);
   if (!element) {
@@ -78,10 +61,7 @@ function getDomainFields(block: HTMLCalciteBlockElement): DomainFormElements {
   return {
     unitInput: getElement<HTMLCalciteSelectElement>("[name='unit']", block),
     limitInput: getElement<HTMLCalciteInputElement>("[name='limit']", block),
-    whitelistInput: getElement<HTMLCalciteTextAreaElement>(
-      "[name='whitelist']",
-      block,
-    ),
+    whitelistInput: getElement<HTMLCalciteTextAreaElement>("[name='whitelist']", block),
   };
 }
 
@@ -103,17 +83,9 @@ type StatusOptions = {
   mountEl?: HTMLCalciteDialogElement;
 };
 
-function emitAlert({
-  title,
-  message = "",
-  kind = "brand",
-  mountEl,
-}: StatusOptions): void {
+function emitAlert({ title, message = "", kind = "brand", mountEl }: StatusOptions): void {
   const alertTemplate = getElement<HTMLTemplateElement>("#alert-template");
-  const alertEl = getElement<HTMLCalciteAlertElement>(
-    "calcite-alert",
-    alertTemplate.content,
-  );
+  const alertEl = getElement<HTMLCalciteAlertElement>("calcite-alert", alertTemplate.content);
   const alert = alertEl.cloneNode(true) as HTMLCalciteAlertElement;
 
   alert.kind = kind;
@@ -155,15 +127,9 @@ function splitWhitelistedPaths(value: FormDataEntryValue | null): string[] {
 
 function addDialog(): Promise<DialogResult> {
   const dialog = getElement<HTMLCalciteDialogElement>("#edit-dialog");
-  const input = getElement<HTMLCalciteInputElement>(
-    "#edit-domain-input",
-    dialog,
-  );
+  const input = getElement<HTMLCalciteInputElement>("#edit-domain-input", dialog);
   const formEl = getElement<HTMLFormElement>("#add-domain-form", dialog);
-  const cancelButton = getElement<HTMLCalciteButtonElement>(
-    "#edit-cancel",
-    dialog,
-  );
+  const cancelButton = getElement<HTMLCalciteButtonElement>("#edit-cancel", dialog);
 
   input.value = "";
 
@@ -174,9 +140,7 @@ function addDialog(): Promise<DialogResult> {
       formEl.removeEventListener("submit", handleSave);
       cancelButton.removeEventListener("click", handleCancel);
       dialog.removeEventListener("calciteDialogClose", handleClose);
-      dialog
-        .querySelectorAll("calcite-alert")
-        .forEach((alert) => alert.remove());
+      dialog.querySelectorAll("calcite-alert").forEach((alert) => alert.remove());
     };
 
     const handleSave = async (e: SubmitEvent) => {
@@ -239,10 +203,7 @@ function renderDomain({
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const block = getElement<HTMLCalciteBlockElement>("calcite-block", fragment);
   const form = getElement<HTMLFormElement>("form", block);
-  const saveButton = getElement<HTMLCalciteActionElement>(
-    "[data-action='save-changes']",
-    block,
-  );
+  const saveButton = getElement<HTMLCalciteActionElement>("[data-action='save-changes']", block);
   const { unitInput, limitInput, whitelistInput } = getDomainFields(block);
   const rulesContainer = getElement<HTMLElement>(".downtime-rules", block);
   let downtimeRules = domain.downtimeRules.map((rule) => ({
@@ -258,47 +219,32 @@ function renderDomain({
     rulesContainer.textContent = "";
     downtimeRules.forEach((rule) => {
       const template = getElement<HTMLTemplateElement>("#downtime-template");
-      const row = template.content.firstElementChild!.cloneNode(
-        true,
-      ) as HTMLElement;
-      const chips =
-        row.querySelectorAll<HTMLCalciteChipElement>("calcite-chip");
+      const row = template.content.firstElementChild!.cloneNode(true) as HTMLElement;
+      const chips = row.querySelectorAll<HTMLCalciteChipElement>("calcite-chip");
       chips.forEach((chip) => {
         chip.toggleAttribute(
           "selected",
           rule.weekdays.includes(Number(chip.getAttribute("value"))),
         );
       });
-      const start = getElement<HTMLCalciteInputTimePickerElement>(
-        "[data-time='start']",
-        row,
-      );
-      const end = getElement<HTMLCalciteInputTimePickerElement>(
-        "[data-time='end']",
-        row,
-      );
-      const allDay = getElement<HTMLCalciteSwitchElement>(
-        "[data-switch='all-day']",
-        row,
-      );
-      const allow = getElement<HTMLCalciteSwitchElement>(
-        "[data-switch='allow-whitelist']",
-        row,
-      );
+      const start = getElement<HTMLCalciteInputTimePickerElement>("[data-time='start']", row);
+      const end = getElement<HTMLCalciteInputTimePickerElement>("[data-time='end']", row);
+      const allDay = getElement<HTMLCalciteSwitchElement>("[data-switch='all-day']", row);
+      const allow = getElement<HTMLCalciteSwitchElement>("[data-switch='allow-whitelist']", row);
       start.value = minutesToTime(rule.startMinutes);
       end.value = minutesToTime(rule.endMinutes);
       allDay.checked = rule.allDay;
       allow.checked = rule.allowWhitelistedPaths;
       start.disabled = end.disabled = rule.allDay;
-      getElement<HTMLCalciteChipGroupElement>(
-        "calcite-chip-group",
-        row,
-      ).addEventListener("calciteChipGroupSelect", () => {
-        rule.weekdays = Array.from(chips)
-          .filter((chip) => chip.selected)
-          .map((chip) => Number(chip.getAttribute("value")));
-        enableSave();
-      });
+      getElement<HTMLCalciteChipGroupElement>("calcite-chip-group", row).addEventListener(
+        "calciteChipGroupSelect",
+        () => {
+          rule.weekdays = Array.from(chips)
+            .filter((chip) => chip.selected)
+            .map((chip) => Number(chip.getAttribute("value")));
+          enableSave();
+        },
+      );
       start.addEventListener("calciteInputTimePickerChange", () => {
         rule.startMinutes = timeToMinutes(start.value);
         enableSave();
@@ -316,23 +262,20 @@ function renderDomain({
         rule.allowWhitelistedPaths = allow.checked;
         enableSave();
       });
-      getElement<HTMLCalciteActionElement>(
-        "[data-action='delete-downtime']",
-        row,
-      ).addEventListener("click", () => {
-        downtimeRules = downtimeRules.filter((item) => item.id !== rule.id);
-        renderRules();
-        enableSave();
-      });
+      getElement<HTMLCalciteActionElement>("[data-action='delete-downtime']", row).addEventListener(
+        "click",
+        () => {
+          downtimeRules = downtimeRules.filter((item) => item.id !== rule.id);
+          renderRules();
+          enableSave();
+        },
+      );
       rulesContainer.append(row);
     });
   };
 
   // Setup values
-  const limitSeconds = Math.max(
-    1,
-    Math.round((domain.limitMs ?? 5 * 60_000) / 1000),
-  );
+  const limitSeconds = Math.max(1, Math.round((domain.limitMs ?? 5 * 60_000) / 1000));
   const useMinutes = limitSeconds % 60 === 0;
 
   block.heading = domain.url ?? "";
@@ -341,29 +284,29 @@ function renderDomain({
   limitInput.value = String(useMinutes ? limitSeconds / 60 : limitSeconds);
   whitelistInput.value = domain.whitelistedPaths.join("\n") ?? "";
   renderRules();
-  getElement<HTMLCalciteActionElement>(
-    "[data-action='add-downtime']",
-    block,
-  ).addEventListener("click", () => {
-    downtimeRules.push({
-      id: crypto.randomUUID(),
-      weekdays: [0, 1, 2, 3, 4, 5, 6],
-      startMinutes: 21 * 60,
-      endMinutes: 7 * 60,
-      allDay: false,
-      allowWhitelistedPaths: true,
-    });
-    renderRules();
-    enableSave();
-  });
+  getElement<HTMLCalciteActionElement>("[data-action='add-downtime']", block).addEventListener(
+    "click",
+    () => {
+      downtimeRules.push({
+        id: crypto.randomUUID(),
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+        startMinutes: 21 * 60,
+        endMinutes: 7 * 60,
+        allDay: false,
+        allowWhitelistedPaths: true,
+      });
+      renderRules();
+      enableSave();
+    },
+  );
 
-  getElement<HTMLCalciteActionElement>(
-    "[data-action='delete-domain']",
-    block,
-  ).addEventListener("click", async () => {
-    block.remove();
-    await options.removeDomain(domain);
-  });
+  getElement<HTMLCalciteActionElement>("[data-action='delete-domain']", block).addEventListener(
+    "click",
+    async () => {
+      block.remove();
+      await options.removeDomain(domain);
+    },
+  );
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -374,8 +317,7 @@ function renderDomain({
         saveButton.disabled = true;
       })
       .catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : "Unable to save changes.";
+        const message = error instanceof Error ? error.message : "Unable to save changes.";
         emitAlert({
           title: "Sorry, something went wrong",
           message,
@@ -408,8 +350,7 @@ async function saveDomainChanges(
   }
   if (downtimeRules.some((rule) => !isValidDowntimeRule(rule))) {
     emitAlert({
-      title:
-        "Each downtime rule needs at least one day and valid, different start and end times.",
+      title: "Each downtime rule needs at least one day and valid, different start and end times.",
       kind: "warning",
     });
     return false;
@@ -484,14 +425,10 @@ async function renderUi(): Promise<void> {
 
 function setupOptionsUi(): void {
   setupThemeActions();
-  getElement<HTMLCalciteActionElement>("#add-domain").addEventListener(
-    "click",
-    createDomainEntry,
-  );
+  getElement<HTMLCalciteActionElement>("#add-domain").addEventListener("click", createDomainEntry);
 
   renderUi().catch((error: unknown) => {
-    const message =
-      error instanceof Error ? error.message : "Unable to load options.";
+    const message = error instanceof Error ? error.message : "Unable to load options.";
     emitAlert({
       title: "Sorry, something went wrong",
       message,

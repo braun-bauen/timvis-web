@@ -1,6 +1,4 @@
-export function storageGet<T>(
-  key: string,
-): Promise<Record<string, T | undefined>> {
+export function storageGet<T>(key: string): Promise<Record<string, T | undefined>> {
   return new Promise((resolve) => {
     chrome.storage.local.get(key, (items) => {
       resolve(items as Record<string, T | undefined>);

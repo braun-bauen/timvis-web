@@ -19,9 +19,7 @@ function applyTheme(preference: ThemePreference): void {
   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
 }
 
-export async function setThemePreference(
-  preference: ThemePreference,
-): Promise<void> {
+export async function setThemePreference(preference: ThemePreference): Promise<void> {
   applyTheme(preference);
   await storageSet<ThemePreference>({ [THEME_STORAGE_KEY]: preference });
 }

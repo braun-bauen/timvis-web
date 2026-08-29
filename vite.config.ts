@@ -1,6 +1,12 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  lint: {
+    ignorePatterns: ["dist/**", "node_modules/**"],
+  },
+  staged: {
+    "*": "vp check --fix",
+  },
   build: {
     rollupOptions: {
       input: {

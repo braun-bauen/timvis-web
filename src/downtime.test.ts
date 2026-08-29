@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  evaluateDowntime,
-  evaluateDowntimeAccess,
-  isValidDowntimeRule,
-} from "./downtime";
+import { evaluateDowntime, evaluateDowntimeAccess, isValidDowntimeRule } from "./downtime";
 import type { DowntimeRule } from "./types";
 
 const rule = (overrides: Partial<DowntimeRule> = {}): DowntimeRule => ({
@@ -39,14 +35,10 @@ describe("evaluateDowntimeAccess", () => {
 describe("isValidDowntimeRule", () => {
   it("rejects non-finite and equal non-all-day times", () => {
     expect(isValidDowntimeRule(rule({ startMinutes: Number.NaN }))).toBe(false);
-    expect(
-      isValidDowntimeRule(rule({ startMinutes: 540, endMinutes: 540 })),
-    ).toBe(false);
-    expect(
-      isValidDowntimeRule(
-        rule({ allDay: true, startMinutes: 540, endMinutes: 540 }),
-      ),
-    ).toBe(true);
+    expect(isValidDowntimeRule(rule({ startMinutes: 540, endMinutes: 540 }))).toBe(false);
+    expect(isValidDowntimeRule(rule({ allDay: true, startMinutes: 540, endMinutes: 540 }))).toBe(
+      true,
+    );
   });
 });
 describe("evaluateDowntime", () => {
@@ -72,12 +64,8 @@ describe("evaluateDowntime", () => {
   });
 
   it("matches an all-day rule only on selected days", () => {
-    expect(evaluateDowntime([rule({ allDay: true })], local(1, 0)).active).toBe(
-      true,
-    );
-    expect(
-      evaluateDowntime([rule({ allDay: true })], local(2, 12)).active,
-    ).toBe(false);
+    expect(evaluateDowntime([rule({ allDay: true })], local(1, 0)).active).toBe(true);
+    expect(evaluateDowntime([rule({ allDay: true })], local(2, 12)).active).toBe(false);
   });
 
   it("lets the strictest overlapping rule decide whitelist access", () => {
