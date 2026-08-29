@@ -14,6 +14,29 @@
         scale="l"
         heading-level="1"
       >
+        <calcite-action-group
+          slot="header-actions-end"
+          layout="horizontal"
+          label="Color theme"
+          selection-mode="single-persist"
+        >
+          <calcite-action
+            data-theme="light"
+            text="Light theme"
+            icon="brightness"
+          ></calcite-action>
+          <calcite-action
+            data-theme="dark"
+            text="Dark theme"
+            icon="moon"
+          ></calcite-action>
+          <calcite-action
+            data-theme="system"
+            text="Use system theme"
+            icon="monitor"
+          ></calcite-action>
+        </calcite-action-group>
+
         <calcite-action
           id="add-domain"
           slot="header-actions-end"

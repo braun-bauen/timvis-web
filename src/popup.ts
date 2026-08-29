@@ -1,5 +1,6 @@
 import "./popup.css";
 import type { Action, RuntimeMessage, StatusMessage } from "./types";
+import { setupTheme } from "./theme";
 
 function requireElement<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -72,3 +73,4 @@ function triggerDebugAction(action: Action): void {
 
 setupDebugButtons();
 refreshStatus();
+void setupTheme();
