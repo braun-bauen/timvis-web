@@ -46,12 +46,20 @@ export async function setupTheme(
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    const changedPreference = changes[THEME_STORAGE_KEY]?.newValue;
-    if (areaName !== "local" || !isThemePreference(changedPreference)) {
+    if (
+      areaName !== "local" ||
+      !Object.hasOwn(changes, THEME_STORAGE_KEY)
+    ) {
       return;
     }
 
-    preference = changedPreference;
+    const nextPreference =
+      changes[THEME_STORAGE_KEY]?.newValue ?? "system";
+    if (!isThemePreference(nextPreference)) {
+      return;
+    }
+
+    preference = nextPreference;
     applyTheme(preference);
     onPreferenceChange?.(preference);
   });
