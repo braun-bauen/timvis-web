@@ -29,6 +29,10 @@ pnpm dev:popup
 pnpm dev:options
 ```
 
+`dev:options` uses an in-memory mock of the Chrome extension APIs and starts
+with sample domains covering the available options UI. Changes last until the
+page is refreshed.
+
 ### Build
 
 Build the unpacked Chrome extension into `dist/`:

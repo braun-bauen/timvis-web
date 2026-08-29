@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Timvis domains</title>
-    <script defer type="module" src="/src/options-page.ts"></script>
+    <script defer type="module" src="/src/options-entry.ts"></script>
   </head>
   <body>
     <calcite-shell>
@@ -66,7 +66,7 @@
     </template>
 
     <template id="domain-template">
-      <calcite-block collapsible>
+      <calcite-block collapsible label="Domain options">
         <calcite-action
           data-action="delete-domain"
           slot="header-menu-actions"
