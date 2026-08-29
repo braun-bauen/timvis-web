@@ -221,4 +221,4 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-export { };
+export {};

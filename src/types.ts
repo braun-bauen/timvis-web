@@ -5,7 +5,8 @@ export type DialogOptions = {
   message: string;
 };
 
-export type DialogResult = { action: "save"; value: string } | { action: "cancel" };
+export type DialogResult =
+  { action: "save"; value: string } | { action: "cancel" };
 
 export type DomainFormElements = {
   unitInput: HTMLCalciteSelectElement;

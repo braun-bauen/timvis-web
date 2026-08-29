@@ -11,16 +11,26 @@ export type DowntimeAccess = {
   shouldTrackUsage: boolean;
 };
 
-function matchesRule(rule: DowntimeRule, day: number, minutes: number): boolean {
+function matchesRule(
+  rule: DowntimeRule,
+  day: number,
+  minutes: number,
+): boolean {
   if (rule.allDay) {
     return rule.weekdays.includes(day);
   }
   if (rule.startMinutes < rule.endMinutes) {
-    return rule.weekdays.includes(day) && minutes >= rule.startMinutes && minutes < rule.endMinutes;
+    return (
+      rule.weekdays.includes(day) &&
+      minutes >= rule.startMinutes &&
+      minutes < rule.endMinutes
+    );
   }
   const previousDay = (day + 6) % 7;
-  return (rule.weekdays.includes(day) && minutes >= rule.startMinutes) ||
-    (rule.weekdays.includes(previousDay) && minutes < rule.endMinutes);
+  return (
+    (rule.weekdays.includes(day) && minutes >= rule.startMinutes) ||
+    (rule.weekdays.includes(previousDay) && minutes < rule.endMinutes)
+  );
 }
 
 export function evaluateDowntime(
@@ -28,11 +38,14 @@ export function evaluateDowntime(
   date = new Date(),
 ): DowntimeStatus {
   const minutes = date.getHours() * 60 + date.getMinutes();
-  const matching = rules.filter((rule) => matchesRule(rule, date.getDay(), minutes));
+  const matching = rules.filter((rule) =>
+    matchesRule(rule, date.getDay(), minutes),
+  );
   return {
     active: matching.length > 0,
     allowsWhitelistedPaths:
-      matching.length > 0 && matching.every((rule) => rule.allowWhitelistedPaths),
+      matching.length > 0 &&
+      matching.every((rule) => rule.allowWhitelistedPaths),
   };
 }
 

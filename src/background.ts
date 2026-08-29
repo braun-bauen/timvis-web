@@ -182,7 +182,9 @@ async function handleTick(
   await saveState(config, state);
 }
 
-async function handleGetStatus(url: string | undefined): Promise<StatusMessage> {
+async function handleGetStatus(
+  url: string | undefined,
+): Promise<StatusMessage> {
   if (env.debug) {
     return {
       blocked: false,
@@ -257,7 +259,7 @@ async function handleDebugAction(
   await Promise.all(
     domains.map(async (config) => {
       await sendMessageToDomainTabs(config, action);
-    })
+    }),
   );
 
   return { ok: true };
@@ -337,4 +339,4 @@ chrome.runtime.onStartup.addListener(() => {
   registerContentScripts().catch(() => undefined);
 });
 
-export { };
+export {};

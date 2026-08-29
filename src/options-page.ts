@@ -372,9 +372,7 @@ async function saveDomainChanges(
     });
     return false;
   }
-  if (
-    downtimeRules.some((rule) => !isValidDowntimeRule(rule))
-  ) {
+  if (downtimeRules.some((rule) => !isValidDowntimeRule(rule))) {
     emitAlert({
       title:
         "Each downtime rule needs at least one day and valid, different start and end times.",

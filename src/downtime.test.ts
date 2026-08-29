@@ -39,7 +39,9 @@ describe("evaluateDowntimeAccess", () => {
 describe("isValidDowntimeRule", () => {
   it("rejects non-finite and equal non-all-day times", () => {
     expect(isValidDowntimeRule(rule({ startMinutes: Number.NaN }))).toBe(false);
-    expect(isValidDowntimeRule(rule({ startMinutes: 540, endMinutes: 540 }))).toBe(false);
+    expect(
+      isValidDowntimeRule(rule({ startMinutes: 540, endMinutes: 540 })),
+    ).toBe(false);
     expect(
       isValidDowntimeRule(
         rule({ allDay: true, startMinutes: 540, endMinutes: 540 }),
