@@ -23,6 +23,7 @@ import type {
   DowntimeRule,
 } from "./types";
 import Options from "./options";
+import { isValidDowntimeRule } from "./downtime";
 import "./options.css";
 
 const options = Options();
@@ -372,15 +373,11 @@ async function saveDomainChanges(
     return false;
   }
   if (
-    downtimeRules.some(
-      (rule) =>
-        rule.weekdays.length === 0 ||
-        (!rule.allDay && rule.startMinutes === rule.endMinutes),
-    )
+    downtimeRules.some((rule) => !isValidDowntimeRule(rule))
   ) {
     emitAlert({
       title:
-        "Each downtime rule needs at least one day and different start and end times.",
+        "Each downtime rule needs at least one day and valid, different start and end times.",
       kind: "warning",
     });
     return false;

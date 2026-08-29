@@ -64,7 +64,10 @@ calcite-block > form {
     display: flex;
     flex-flow: row wrap;
     gap: var(--calcite-space-lg);
-    align-items: center;
+
+    calcite-switch {
+      margin-block-start: var(--calcite-space-2xs);
+    }
   }
 
   .downtime-flex-sm {

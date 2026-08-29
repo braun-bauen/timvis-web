@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { evaluateDowntime } from "./downtime";
+import {
+  evaluateDowntime,
+  evaluateDowntimeAccess,
+  isValidDowntimeRule,
+} from "./downtime";
 import type { DowntimeRule } from "./types";
 
 const rule = (overrides: Partial<DowntimeRule> = {}): DowntimeRule => ({
@@ -11,11 +15,38 @@ const rule = (overrides: Partial<DowntimeRule> = {}): DowntimeRule => ({
   allowWhitelistedPaths: true,
   ...overrides,
 });
+
 const local = (day: number, hours: number, minutes = 0) => {
   const date = new Date(2026, 7, 23 + day, hours, minutes);
   return date;
 };
 
+describe("evaluateDowntimeAccess", () => {
+  it("applies strict downtime consistently to whitelist access and usage", () => {
+    const access = evaluateDowntimeAccess(
+      [rule({ allowWhitelistedPaths: false })],
+      true,
+      local(1, 12),
+    );
+    expect(access).toEqual({
+      downtimeBlocked: true,
+      accessibleByWhitelist: false,
+      shouldTrackUsage: false,
+    });
+  });
+});
+
+describe("isValidDowntimeRule", () => {
+  it("rejects non-finite and equal non-all-day times", () => {
+    expect(isValidDowntimeRule(rule({ startMinutes: Number.NaN }))).toBe(false);
+    expect(isValidDowntimeRule(rule({ startMinutes: 540, endMinutes: 540 }))).toBe(false);
+    expect(
+      isValidDowntimeRule(
+        rule({ allDay: true, startMinutes: 540, endMinutes: 540 }),
+      ),
+    ).toBe(true);
+  });
+});
 describe("evaluateDowntime", () => {
   it("uses inclusive starts and exclusive ends", () => {
     expect(evaluateDowntime([rule()], local(1, 9)).active).toBe(true);

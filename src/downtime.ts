@@ -5,6 +5,12 @@ export type DowntimeStatus = {
   allowsWhitelistedPaths: boolean;
 };
 
+export type DowntimeAccess = {
+  downtimeBlocked: boolean;
+  accessibleByWhitelist: boolean;
+  shouldTrackUsage: boolean;
+};
+
 function matchesRule(rule: DowntimeRule, day: number, minutes: number): boolean {
   if (rule.allDay) {
     return rule.weekdays.includes(day);
@@ -28,4 +34,29 @@ export function evaluateDowntime(
     allowsWhitelistedPaths:
       matching.length > 0 && matching.every((rule) => rule.allowWhitelistedPaths),
   };
+}
+
+export function evaluateDowntimeAccess(
+  rules: DowntimeRule[],
+  whitelisted: boolean,
+  date = new Date(),
+): DowntimeAccess {
+  const downtime = evaluateDowntime(rules, date);
+  const downtimeBlocked =
+    downtime.active && !(whitelisted && downtime.allowsWhitelistedPaths);
+
+  return {
+    downtimeBlocked,
+    accessibleByWhitelist: whitelisted && !downtimeBlocked,
+    shouldTrackUsage: !whitelisted && !downtimeBlocked,
+  };
+}
+
+export function isValidDowntimeRule(rule: DowntimeRule): boolean {
+  return (
+    rule.weekdays.length > 0 &&
+    Number.isFinite(rule.startMinutes) &&
+    Number.isFinite(rule.endMinutes) &&
+    (rule.allDay || rule.startMinutes !== rule.endMinutes)
+  );
 }

@@ -8,7 +8,7 @@ import type {
   StoredState,
 } from "./types";
 import { storageGet, storageSet } from "./utils";
-import { evaluateDowntime } from "./downtime";
+import { evaluateDowntimeAccess } from "./downtime";
 
 const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
@@ -131,9 +131,8 @@ async function handleTick(
 
   const state = await getState(config);
   const whitelisted = options.isWhitelistedUrl(config, url);
-  const downtime = evaluateDowntime(config.downtimeRules);
-  const downtimeBlocked = downtime.active && !(whitelisted && downtime.allowsWhitelistedPaths);
-  if (state.blocked || downtimeBlocked || whitelisted) {
+  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
+  if (state.blocked || !access.shouldTrackUsage) {
     return;
   }
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
@@ -174,14 +173,13 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
 
   const whitelisted = options.isWhitelistedUrl(config, url);
   const state = await getState(config);
-  const downtime = evaluateDowntime(config.downtimeRules);
-  const downtimeBlocked = downtime.active && !(whitelisted && downtime.allowsWhitelistedPaths);
-  const accessibleByWhitelist = whitelisted && !downtimeBlocked;
+  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
 
   if (
     !whitelisted &&
+    !access.downtimeBlocked &&
     warnAtMs > 0 &&
     !state.blocked &&
     state.usedMs >= warnAtMs &&
@@ -193,11 +191,11 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
   }
 
   return {
-    blocked: downtimeBlocked || (!whitelisted && state.blocked),
-    downtime: downtimeBlocked,
+    blocked: access.downtimeBlocked || (!whitelisted && state.blocked),
+    downtime: access.downtimeBlocked,
     showWarning,
     debug: false,
-    whitelisted: accessibleByWhitelist,
+    whitelisted: access.accessibleByWhitelist,
     domainConfigId: config.id,
     domain: config.url,
   };
