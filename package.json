@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vp dev",
     "dev:popup": "vp dev --open /src/popup.html",
-    "dev:options": "vp dev --open /src/options.html",
+    "dev:options": "VITE_MOCK_EXTENSION=true vp dev",
     "build": "vp build",
     "build:debug": "VITE_DEBUG=true vp build",
     "test": "vp test run",

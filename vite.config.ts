@@ -7,6 +7,32 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
+  plugins: [
+    {
+      name: "options-dev-url",
+      configureServer(server) {
+        if (process.env.VITE_MOCK_EXTENSION !== "true") {
+          return;
+        }
+
+        const printUrls = server.printUrls;
+        server.printUrls = () => {
+          const urls = server.resolvedUrls;
+          if (!urls) {
+            printUrls();
+            return;
+          }
+
+          for (const url of urls.local) {
+            console.info(`  ➜  Local:   ${url}src/options.html`);
+          }
+          for (const url of urls.network) {
+            console.info(`  ➜  Network: ${url}src/options.html`);
+          }
+        };
+      },
+    },
+  ],
   build: {
     rollupOptions: {
       input: {
