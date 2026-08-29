@@ -12,6 +12,17 @@ let whitelisted = false;
 let blockedDomain = "this site";
 let domainConfigId: string | undefined;
 let lastUrl = window.location.href;
+let lastStatusMinute = "";
+
+function getMinuteKey(date = new Date()): string {
+  return [
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+  ].join(":");
+}
 
 function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   const dialog = document.createElement("dialog");
@@ -144,13 +155,16 @@ function startTicking(): void {
       { type: "tick", elapsedMs: elapsed, url: window.location.href },
       () => {
         void chrome.runtime.lastError;
-        refreshStatus();
+        if (getMinuteKey() !== lastStatusMinute) {
+          refreshStatus();
+        }
       },
     );
   }, TICK_INTERVAL_MS);
 }
 
 function refreshStatus(): void {
+  lastStatusMinute = getMinuteKey();
   chrome.runtime.sendMessage(
     { type: "getStatus", url: window.location.href },
     (status: StatusMessage | undefined) => {
