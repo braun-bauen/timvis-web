@@ -316,10 +316,15 @@ chrome.runtime.onMessage.addListener(
           if (runtimeMessage.addedDomain) {
             await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
           } else {
+            const domains = await options.getDomains();
             const tabs = await chrome.tabs.query({
               url: ["http://*/*", "https://*/*"],
             });
-            tabs.forEach((tab) => sendMessageToTab(tab.id, "refresh"));
+            tabs.forEach((tab) => {
+              if (tab.url && options.getBlockedDomainForUrl(domains, tab.url)) {
+                sendMessageToTab(tab.id, "refresh");
+              }
+            });
           }
           sendResponse({ ok: true });
         })
