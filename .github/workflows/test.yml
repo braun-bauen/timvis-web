@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   test:
+    name: Run Vitest test suite
     runs-on: ubuntu-latest
 
     steps:
