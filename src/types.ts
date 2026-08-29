@@ -61,4 +61,5 @@ export type RuntimeMessage = {
   elapsedMs?: number;
   action?: Action;
   url?: string;
+  addedDomain?: string;
 };

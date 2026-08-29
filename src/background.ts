@@ -105,6 +105,39 @@ async function sendMessageToDomainTabs(
   }
 }
 
+async function refreshOrInjectNewDomainTabs(domain: string): Promise<void> {
+  const config = (await options.getDomains()).find(
+    (candidate) => candidate.url === domain,
+  );
+  if (!config) {
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({
+    url: options.getOriginPatterns(config),
+  });
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (!tab.id) {
+        return;
+      }
+
+      try {
+        await chrome.tabs.sendMessage(tab.id, "refresh");
+      } catch {
+        await chrome.scripting.insertCSS({
+          target: { tabId: tab.id },
+          files: ["content.css"],
+        });
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        });
+      }
+    }),
+  );
+}
+
 async function getConfigForUrl(
   url: string | undefined,
 ): Promise<DomainData | null> {
@@ -278,8 +311,14 @@ chrome.runtime.onMessage.addListener(
     if (runtimeMessage.type === "optionsChanged") {
       registerContentScripts()
         .then(async () => {
-          const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-          tabs.forEach((tab) => sendMessageToTab(tab.id, "refresh"));
+          if (runtimeMessage.addedDomain) {
+            await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
+          } else {
+            const tabs = await chrome.tabs.query({
+              url: ["http://*/*", "https://*/*"],
+            });
+            tabs.forEach((tab) => sendMessageToTab(tab.id, "refresh"));
+          }
           sendResponse({ ok: true });
         })
         .catch(() => sendResponse({ ok: false }));

@@ -15,12 +15,15 @@ export default function Options() {
     return normalizeData(data);
   }
 
-  async function save(data: ExtensionData): Promise<void> {
+  async function save(
+    data: ExtensionData,
+    addedDomain?: string,
+  ): Promise<void> {
     await storageSet<ExtensionData>({
       [OPTIONS_STORAGE_KEY]: normalizeData(data),
     });
 
-    chrome.runtime.sendMessage({ type: "optionsChanged" });
+    chrome.runtime.sendMessage({ type: "optionsChanged", addedDomain });
   }
 
   async function getDomains(): Promise<DomainData[]> {
@@ -45,7 +48,7 @@ export default function Options() {
       return { error: `Host permissions were not granted for domain: ${domain.url}` };
     }
 
-    await save(data);
+    await save(data, domain.url);
     return { error: undefined };
   }
 
@@ -263,5 +266,6 @@ export default function Options() {
     normalizePath,
     validateUrl,
     hasHostPermissions,
+    getOriginPatterns,
   }
 }
