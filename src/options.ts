@@ -1,4 +1,4 @@
-import type { DomainData, ExtensionData, ValidatedUrl } from "./types";
+import type { DomainData, DowntimeRule, ExtensionData, ValidatedUrl } from "./types";
 import { storageGet, storageRemove, storageSet } from "./utils";
 
 
@@ -153,6 +153,19 @@ export default function Options() {
             .filter((path) => path.length > 0),
         ),
       ),
+      downtimeRules: (config.downtimeRules ?? []).map(normalizeDowntimeRule),
+    };
+  }
+
+  function normalizeDowntimeRule(rule: Partial<DowntimeRule>): DowntimeRule {
+    return {
+      id: String(rule.id || crypto.randomUUID()),
+      weekdays: Array.from(new Set((rule.weekdays ?? []).map(Number)))
+        .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+      startMinutes: Math.min(1439, Math.max(0, Math.floor(Number(rule.startMinutes) || 0))),
+      endMinutes: Math.min(1439, Math.max(0, Math.floor(Number(rule.endMinutes) || 0))),
+      allDay: Boolean(rule.allDay),
+      allowWhitelistedPaths: Boolean(rule.allowWhitelistedPaths),
     };
   }
 

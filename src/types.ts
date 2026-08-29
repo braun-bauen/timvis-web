@@ -1,4 +1,4 @@
-export type Action = "warn" | "block" | "unblock";
+export type Action = "warn" | "block" | "unblock" | "refresh";
 
 export type DialogOptions = {
   type: "warn" | "block";
@@ -15,6 +15,7 @@ export type DomainFormElements = {
 
 export type StatusMessage = {
   blocked: boolean;
+  downtime: boolean;
   showWarning: boolean;
   debug: boolean;
   whitelisted: boolean;
@@ -34,6 +35,16 @@ export type DomainData = {
   url: string;
   limitMs: number;
   whitelistedPaths: string[];
+  downtimeRules: DowntimeRule[];
+};
+
+export type DowntimeRule = {
+  id: string;
+  weekdays: number[];
+  startMinutes: number;
+  endMinutes: number;
+  allDay: boolean;
+  allowWhitelistedPaths: boolean;
 };
 
 export type ExtensionData = {

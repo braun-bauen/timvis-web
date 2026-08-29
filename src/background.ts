@@ -8,6 +8,7 @@ import type {
   StoredState,
 } from "./types";
 import { storageGet, storageSet } from "./utils";
+import { evaluateDowntime } from "./downtime";
 
 const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
@@ -124,11 +125,17 @@ async function handleTick(
   }
 
   const config = await getConfigForUrl(url);
-  if (!config || !url || options.isWhitelistedUrl(config, url)) {
+  if (!config || !url) {
     return;
   }
 
   const state = await getState(config);
+  const whitelisted = options.isWhitelistedUrl(config, url);
+  const downtime = evaluateDowntime(config.downtimeRules);
+  const downtimeBlocked = downtime.active && !(whitelisted && downtime.allowsWhitelistedPaths);
+  if (state.blocked || downtimeBlocked || whitelisted) {
+    return;
+  }
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   state.usedMs += elapsedMs;
 
@@ -147,6 +154,7 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
   if (env.debug) {
     return {
       blocked: false,
+      downtime: false,
       showWarning: false,
       debug: true,
       whitelisted: false,
@@ -157,6 +165,7 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
   if (!config || !url) {
     return {
       blocked: false,
+      downtime: false,
       showWarning: false,
       debug: false,
       whitelisted: false,
@@ -165,6 +174,9 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
 
   const whitelisted = options.isWhitelistedUrl(config, url);
   const state = await getState(config);
+  const downtime = evaluateDowntime(config.downtimeRules);
+  const downtimeBlocked = downtime.active && !(whitelisted && downtime.allowsWhitelistedPaths);
+  const accessibleByWhitelist = whitelisted && !downtimeBlocked;
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
 
@@ -181,10 +193,11 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
   }
 
   return {
-    blocked: !whitelisted && state.blocked,
+    blocked: downtimeBlocked || (!whitelisted && state.blocked),
+    downtime: downtimeBlocked,
     showWarning,
     debug: false,
-    whitelisted,
+    whitelisted: accessibleByWhitelist,
     domainConfigId: config.id,
     domain: config.url,
   };
@@ -248,6 +261,7 @@ chrome.runtime.onMessage.addListener(
         .catch(() =>
           sendResponse({
             blocked: false,
+            downtime: false,
             showWarning: false,
             debug: false,
             whitelisted: false,
@@ -265,7 +279,11 @@ chrome.runtime.onMessage.addListener(
 
     if (runtimeMessage.type === "optionsChanged") {
       registerContentScripts()
-        .then(() => sendResponse({ ok: true }))
+        .then(async () => {
+          const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+          tabs.forEach((tab) => sendMessageToTab(tab.id, "refresh"));
+          sendResponse({ ok: true });
+        })
         .catch(() => sendResponse({ ok: false }));
       return true;
     }

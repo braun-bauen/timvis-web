@@ -90,6 +90,21 @@
             rows="3"
             placeholder="/inbox&#10;/settings"
           ></calcite-text-area>
+          <div>
+            <div class="downtime-header">Downtime</div>
+            <div>
+              Completely block this domain on recurring weekly schedules.
+            </div>
+          </div>
+          <div class="downtime">
+            <div class="downtime-rules"></div>
+            <calcite-action
+              data-action="add-downtime"
+              text="Add downtime rule"
+              text-enabled
+              icon="plus"
+            ></calcite-action>
+          </div>
           <div class="row">
             <calcite-action
               type="submit"
@@ -103,6 +118,55 @@
           </div>
         </form>
       </calcite-block>
+    </template>
+
+    <template id="downtime-template">
+      <div class="downtime-rule">
+        <div class="downtime-flex">
+          <calcite-chip-group scale="s" selection-mode="multiple" label="Days">
+            <calcite-chip value="0" label="Sunday">S</calcite-chip>
+            <calcite-chip value="1" label="Monday">M</calcite-chip>
+            <calcite-chip value="2" label="Tuesday">T</calcite-chip>
+            <calcite-chip value="3" label="Wednesday">W</calcite-chip>
+            <calcite-chip value="4" label="Thursday">T</calcite-chip>
+            <calcite-chip value="5" label="Friday">F</calcite-chip>
+            <calcite-chip value="6" label="Saturday">S</calcite-chip>
+          </calcite-chip-group>
+
+          <div class="downtime-flex downtime-flex-sm">
+            <calcite-input-time-picker
+              data-time="start"
+              label="Downtime start"
+              scale="s"
+              step="60"
+            ></calcite-input-time-picker>
+            <calcite-icon icon="arrow-right"></calcite-icon>
+            <calcite-input-time-picker
+              data-time="end"
+              label="Downtime end"
+              scale="s"
+              step="60"
+            ></calcite-input-time-picker>
+          </div>
+
+          <div class="downtime-flex">
+            <calcite-switch
+              data-switch="all-day"
+              label-text-end="All day"
+            ></calcite-switch>
+            <calcite-switch
+              data-switch="allow-whitelist"
+              label-text-end="Allow whitelisted paths"
+            ></calcite-switch>
+          </div>
+        </div>
+
+        <calcite-action
+          data-action="delete-downtime"
+          text="Delete downtime"
+          icon="trash"
+        ></calcite-action>
+      </div>
     </template>
   </body>
 </html>

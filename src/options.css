@@ -3,7 +3,6 @@
 * {
   box-sizing: border-box;
 }
-
 body,
 html {
   margin: 0;
@@ -33,5 +32,42 @@ calcite-block > form {
     display: flex;
     flex-flow: row wrap;
     gap: var(--calcite-space-md);
+  }
+
+  .downtime {
+    border: var(--calcite-border-width-sm) solid
+      var(--calcite-color-border-input);
+    padding-block: var(--calcite-spacing-sm);
+    padding-inline: var(--calcite-spacing-md);
+  }
+
+  .downtime-header {
+    font-size: var(--calcite-font-size-md);
+    font-weight: var(--calcite-font-weight-semibold);
+    margin-inline-end: var(--calcite-spacing-sm);
+  }
+
+  .downtime-rule {
+    display: flex;
+    flex-flow: row nowrap;
+    gap: var(--calcite-space-md);
+    align-items: center;
+    justify-content: space-between;
+    padding-block: var(--calcite-space-md);
+
+    &:not(:last-child) {
+      border-bottom: 1px solid var(--calcite-color-border-2);
+    }
+  }
+
+  .downtime-flex {
+    display: flex;
+    flex-flow: row wrap;
+    gap: var(--calcite-space-lg);
+    align-items: center;
+  }
+
+  .downtime-flex-sm {
+    gap: var(--calcite-space-sm);
   }
 }
