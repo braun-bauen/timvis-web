@@ -147,7 +147,7 @@ function startTicking(): void {
       refreshStatus();
     }
 
-    if (!document.hasFocus()) {
+    if (document.hidden || !document.hasFocus()) {
       return;
     }
 
@@ -229,7 +229,16 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
 startTicking();
 refreshStatus();
 
+function resetTickClock(): void {
+  // Background timers can be delayed. Never charge that gap after focus returns.
+  lastTick = Date.now();
+}
+
+window.addEventListener("blur", resetTickClock);
+window.addEventListener("focus", resetTickClock);
+
 document.addEventListener("visibilitychange", () => {
+  resetTickClock();
   if (!document.hidden) {
     refreshStatus();
   }
