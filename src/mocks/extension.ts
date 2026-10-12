@@ -1,4 +1,17 @@
-import type { ExtensionData } from "../types";
+import Options from "../options";
+import { evaluateDowntime, evaluateDowntimeAccess } from "../downtime";
+import type { RuntimeMessage, ExtensionData } from "../types";
+
+// LAN previews use HTTP, where randomUUID is unavailable outside localhost.
+if (!crypto.randomUUID) {
+  crypto.randomUUID = () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  };
+}
 
 const OPTIONS_STORAGE_KEY = "timvis_options";
 
@@ -93,8 +106,42 @@ const mockChrome = {
     request: async () => true,
     remove: async () => true,
   },
+  tabs: { query: async () => [{ id: 1, url: "https://news.example.com/" }] },
   runtime: {
-    sendMessage: () => undefined,
+    async sendMessage(message: RuntimeMessage) {
+      if (message.type !== "getPopupStatus") return { ok: true };
+      const options = Options();
+      const domains = await options.getDomains();
+      const domain = message.domainConfigId
+        ? domains.find((item) => item.id === message.domainConfigId)
+        : options.getBlockedDomainForUrl(domains, message.url ?? "");
+      if (!domain)
+        return {
+          blocked: false,
+          downtime: false,
+          showWarning: false,
+          debug: false,
+          whitelisted: false,
+        };
+      const access = evaluateDowntimeAccess(
+        domain.downtimeRules,
+        options.isWhitelistedUrl(domain, message.url ?? ""),
+      );
+      return {
+        blocked: access.downtimeBlocked,
+        downtime: access.downtimeBlocked,
+        showWarning: false,
+        debug: false,
+        whitelisted: access.accessibleByWhitelist,
+        domainConfigId: domain.id,
+        domain: domain.url,
+        usedMs: 0,
+        allowanceMs: domain.limitMs,
+        remainingMs: domain.limitMs,
+        resetAt: new Date(new Date().setMinutes(60, 0, 0)).getTime(),
+        downtimeActive: evaluateDowntime(domain.downtimeRules).active,
+      };
+    },
   },
 };
 
