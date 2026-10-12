@@ -53,8 +53,15 @@ export function evaluateDowntimeAccess(
 export function isValidDowntimeRule(rule: DowntimeRule): boolean {
   return (
     rule.weekdays.length > 0 &&
+    rule.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
     Number.isFinite(rule.startMinutes) &&
     Number.isFinite(rule.endMinutes) &&
+    Number.isInteger(rule.startMinutes) &&
+    Number.isInteger(rule.endMinutes) &&
+    rule.startMinutes >= 0 &&
+    rule.startMinutes < 1440 &&
+    rule.endMinutes >= 0 &&
+    rule.endMinutes < 1440 &&
     (rule.allDay || rule.startMinutes !== rule.endMinutes)
   );
 }
