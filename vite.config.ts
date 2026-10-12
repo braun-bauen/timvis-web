@@ -9,7 +9,7 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: "options-dev-url",
+      name: "popup-dev-url",
       configureServer(server) {
         if (process.env.VITE_MOCK_EXTENSION !== "true") {
           return;
@@ -24,10 +24,10 @@ export default defineConfig({
           }
 
           for (const url of urls.local) {
-            console.info(`  ➜  Local:   ${url}src/options.html`);
+            console.info(`  ➜  Local:   ${url}src/popup.html`);
           }
           for (const url of urls.network) {
-            console.info(`  ➜  Network: ${url}src/options.html`);
+            console.info(`  ➜  Network: ${url}src/popup.html`);
           }
         };
       },
@@ -37,7 +37,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: "src/popup.html",
-        options: "src/options.html",
         background: "src/background.ts",
         content: "src/content.ts",
       },

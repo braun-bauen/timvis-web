@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { evaluateDowntime, evaluateDowntimeAccess, isValidDowntimeRule } from "./downtime";
 import type { DowntimeRule } from "./types";
 

@@ -22,15 +22,14 @@ This project uses `pnpm` and Vite.
 
 ### HTML page development
 
-Some parts of the extension use HTML pages (popup, options). For basic development on these pages, the respective dev server commands can be used to open the pages with HMR:
+The popup contains current-site status and all domain settings. Open it with HMR:
 
 ```sh
 pnpm dev:popup
-pnpm dev:options
 ```
 
-`dev:options` uses an in-memory mock of the Chrome extension APIs and starts
-with sample domains covering the available options UI. Changes last until the
+`dev:popup` uses an in-memory mock of the Chrome extension APIs and starts
+with sample domains covering the popup interface. Changes last until the
 page is refreshed.
 
 ### Build
