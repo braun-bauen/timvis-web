@@ -253,6 +253,36 @@ describe("popup settings and enforcement", () => {
     ).toMatchObject({ blocked: true, downtime: true, whitelisted: false });
   });
 
+  it("applies the weekly schedule switch immediately on save and preserves recorded usage", async () => {
+    const config = domain("example.com");
+    data["timvis_state:example.com"] = {
+      hourKey,
+      usedMs: 1000,
+      warningShown: false,
+      blocked: false,
+    };
+    config.downtimeSchedule = {
+      enabled: true,
+      allowWhitelistedPaths: true,
+      days: Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        enabled: weekday === 1,
+        startMinutes: 540,
+        endMinutes: 1020,
+      })),
+    };
+    await Options().updateDomain(config);
+    expect(
+      await message<StatusMessage>({ type: "getPopupStatus", url: "https://example.com/" }),
+    ).toMatchObject({ blocked: true, downtime: true, usedMs: 1000 });
+    config.downtimeSchedule.enabled = false;
+    await Options().updateDomain(config);
+    expect(
+      await message<StatusMessage>({ type: "getPopupStatus", url: "https://example.com/" }),
+    ).toMatchObject({ blocked: false, downtime: false, usedMs: 1000 });
+    expect((await Options().getDomains())[0].downtimeSchedule).toEqual(config.downtimeSchedule);
+  });
+
   it("notifies only the controlling rule's tabs after exhausting the parent", async () => {
     await message({ type: "tick", url: "https://example.com/", elapsedMs: 20 * 60_000 });
     expect(tabMessage).toHaveBeenCalledWith(1, "refresh", expect.any(Function));

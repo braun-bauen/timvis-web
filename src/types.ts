@@ -5,14 +5,6 @@ export type DialogOptions = {
   message: string;
 };
 
-export type DialogResult = { action: "save"; value: string } | { action: "cancel" };
-
-export type DomainFormElements = {
-  unitInput: HTMLCalciteSelectElement;
-  limitInput: HTMLCalciteInputElement;
-  whitelistInput: HTMLCalciteTextAreaElement;
-};
-
 export type StatusMessage = {
   blocked: boolean;
   downtime: boolean;
@@ -21,6 +13,11 @@ export type StatusMessage = {
   whitelisted: boolean;
   domainConfigId?: string;
   domain?: string;
+  usedMs?: number;
+  allowanceMs?: number;
+  remainingMs?: number;
+  resetAt?: number;
+  downtimeActive?: boolean;
 };
 
 export type StoredState = {
@@ -36,6 +33,7 @@ export type DomainData = {
   limitMs: number;
   whitelistedPaths: string[];
   downtimeRules: DowntimeRule[];
+  downtimeSchedule?: DowntimeSchedule;
 };
 
 export type DowntimeRule = {
@@ -45,6 +43,17 @@ export type DowntimeRule = {
   endMinutes: number;
   allDay: boolean;
   allowWhitelistedPaths: boolean;
+};
+
+export type DowntimeSchedule = {
+  enabled: boolean;
+  allowWhitelistedPaths: boolean;
+  days: {
+    weekday: number;
+    enabled: boolean;
+    startMinutes: number;
+    endMinutes: number;
+  }[];
 };
 
 export type ExtensionData = {
@@ -57,9 +66,10 @@ export type ValidatedUrl = {
 };
 
 export type RuntimeMessage = {
-  type: "tick" | "getStatus" | "debug" | "optionsChanged";
+  type: "tick" | "getPopupStatus" | "getStatus" | "debug" | "optionsChanged";
   elapsedMs?: number;
   action?: Action;
   url?: string;
   addedDomain?: string;
+  domainConfigId?: string;
 };

@@ -2,7 +2,7 @@ import { env } from "./env";
 import Options from "./options";
 import type { Action, DomainData, RuntimeMessage, StatusMessage, StoredState } from "./types";
 import { storageGet, storageSet } from "./utils";
-import { evaluateDowntime, evaluateDowntimeAccess } from "./downtime";
+import { evaluateDowntime, evaluateDowntimeAccess, getDowntimeRules } from "./downtime";
 
 const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
@@ -156,7 +156,7 @@ async function handleTick(
 
   const state = await getState(config);
   const whitelisted = options.isWhitelistedUrl(config, url);
-  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
+  const access = evaluateDowntimeAccess(getDowntimeRules(config), whitelisted);
   if (state.blocked || !access.shouldTrackUsage) {
     return;
   }
@@ -208,7 +208,7 @@ async function handleGetStatus(
 
   const whitelisted = options.isWhitelistedUrl(config, url);
   const state = await getState(config);
-  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
+  const access = evaluateDowntimeAccess(getDowntimeRules(config), whitelisted);
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
 
@@ -238,7 +238,7 @@ async function handleGetStatus(
     allowanceMs: config.limitMs,
     remainingMs: Math.max(0, config.limitMs - state.usedMs),
     resetAt: new Date(new Date().setMinutes(60, 0, 0)).getTime(),
-    downtimeActive: evaluateDowntime(config.downtimeRules).active,
+    downtimeActive: evaluateDowntime(getDowntimeRules(config)).active,
   };
 }
 

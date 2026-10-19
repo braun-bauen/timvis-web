@@ -1,5 +1,5 @@
 import Options from "../options";
-import { evaluateDowntime, evaluateDowntimeAccess } from "../downtime";
+import { evaluateDowntime, evaluateDowntimeAccess, getDowntimeRules } from "../downtime";
 import type { RuntimeMessage, ExtensionData } from "../types";
 
 // LAN previews use HTTP, where randomUUID is unavailable outside localhost.
@@ -124,7 +124,7 @@ const mockChrome = {
           whitelisted: false,
         };
       const access = evaluateDowntimeAccess(
-        domain.downtimeRules,
+        getDowntimeRules(domain),
         options.isWhitelistedUrl(domain, message.url ?? ""),
       );
       return {
@@ -139,7 +139,7 @@ const mockChrome = {
         allowanceMs: domain.limitMs,
         remainingMs: domain.limitMs,
         resetAt: new Date(new Date().setMinutes(60, 0, 0)).getTime(),
-        downtimeActive: evaluateDowntime(domain.downtimeRules).active,
+        downtimeActive: evaluateDowntime(getDowntimeRules(domain)).active,
       };
     },
   },

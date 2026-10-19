@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
-import { evaluateDowntime, evaluateDowntimeAccess, isValidDowntimeRule } from "./downtime";
-import type { DowntimeRule } from "./types";
+import {
+  evaluateDowntime,
+  evaluateDowntimeAccess,
+  isValidDowntimeRule,
+  createDowntimeSchedule,
+  getDowntimeRules,
+  isValidDowntimeSchedule,
+} from "./downtime";
+import type { DomainData, DowntimeRule } from "./types";
 
 const rule = (overrides: Partial<DowntimeRule> = {}): DowntimeRule => ({
   id: "rule",
@@ -74,5 +81,87 @@ describe("evaluateDowntime", () => {
       local(1, 12),
     );
     expect(status).toEqual({ active: true, allowsWhitelistedPaths: false });
+  });
+});
+
+describe("weekly downtime schedule", () => {
+  function configured(rules: DowntimeRule[]): DomainData {
+    return {
+      id: "site",
+      url: "example.com",
+      limitMs: 300000,
+      whitelistedPaths: [],
+      downtimeRules: rules,
+      downtimeSchedule: createDowntimeSchedule(rules).schedule,
+    };
+  }
+
+  it("supports separate times per day and overnight periods", () => {
+    const domain = configured([
+      rule(),
+      rule({ id: "night", weekdays: [2], startMinutes: 21 * 60, endMinutes: 7 * 60 }),
+    ]);
+    const rules = getDowntimeRules(domain);
+    expect(evaluateDowntime(rules, local(1, 12)).active).toBe(true);
+    expect(evaluateDowntime(rules, local(2, 12)).active).toBe(false);
+    expect(evaluateDowntime(rules, local(2, 22)).active).toBe(true);
+    expect(evaluateDowntime(rules, local(3, 6)).active).toBe(true);
+    expect(evaluateDowntime(rules, local(3, 7)).active).toBe(false);
+  });
+
+  it("disables downtime globally without losing the schedule", () => {
+    const domain = configured([rule()]);
+    const schedule = domain.downtimeSchedule!;
+    const days = structuredClone(schedule.days);
+    schedule.enabled = false;
+    expect(evaluateDowntimeAccess(getDowntimeRules(domain), false, local(1, 12))).toMatchObject({
+      downtimeBlocked: false,
+      shouldTrackUsage: true,
+    });
+    expect(schedule.days).toEqual(days);
+    schedule.enabled = true;
+    expect(evaluateDowntime(getDowntimeRules(domain), local(1, 12)).active).toBe(true);
+  });
+
+  it("disables individual days without clearing their times", () => {
+    const domain = configured([rule()]);
+    const monday = domain.downtimeSchedule!.days.find((day) => day.weekday === 1)!;
+    monday.enabled = false;
+    expect(evaluateDowntime(getDowntimeRules(domain), local(1, 12)).active).toBe(false);
+    expect(monday).toMatchObject({ startMinutes: 540, endMinutes: 1020 });
+    monday.enabled = true;
+    expect(evaluateDowntime(getDowntimeRules(domain), local(1, 12)).active).toBe(true);
+  });
+
+  it("retains full-day downtime and allowed-path behavior", () => {
+    const domain = configured([rule({ allDay: true, allowWhitelistedPaths: false })]);
+    expect(evaluateDowntime(getDowntimeRules(domain), local(1, 23, 59)).active).toBe(true);
+    expect(
+      evaluateDowntimeAccess(getDowntimeRules(domain), true, local(1, 12)).downtimeBlocked,
+    ).toBe(true);
+    domain.downtimeSchedule!.allowWhitelistedPaths = true;
+    expect(
+      evaluateDowntimeAccess(getDowntimeRules(domain), true, local(1, 12)).accessibleByWhitelist,
+    ).toBe(true);
+  });
+
+  it("reports legacy schedules that cannot fit one period per day", () => {
+    expect(createDowntimeSchedule([rule()]).hasConflicts).toBe(false);
+    expect(
+      createDowntimeSchedule([rule(), rule({ startMinutes: 21 * 60, endMinutes: 7 * 60 })])
+        .hasConflicts,
+    ).toBe(true);
+  });
+
+  it("validates all seven days and rejects incomplete or invalid times", () => {
+    const schedule = createDowntimeSchedule([]).schedule;
+    expect(isValidDowntimeSchedule(schedule)).toBe(true);
+    schedule.days[0].startMinutes = Number.NaN;
+    expect(isValidDowntimeSchedule(schedule)).toBe(false);
+    schedule.days[0].startMinutes = 0;
+    schedule.days[0].endMinutes = 1440;
+    expect(isValidDowntimeSchedule(schedule)).toBe(false);
+    schedule.days.pop();
+    expect(isValidDowntimeSchedule(schedule)).toBe(false);
   });
 });

@@ -1,3 +1,5 @@
+import { getDomain } from "tldts";
+import { isValidDowntimeRule, isValidDowntimeSchedule } from "./downtime";
 import type { DomainData, DowntimeRule, ExtensionData, ValidatedUrl } from "./types";
 import { storageGet, storageRemove, storageSet } from "./utils";
 
@@ -19,7 +21,7 @@ export default function Options() {
       [OPTIONS_STORAGE_KEY]: normalizeData(data),
     });
 
-    chrome.runtime.sendMessage({ type: "optionsChanged", addedDomain });
+    await chrome.runtime.sendMessage({ type: "optionsChanged", addedDomain });
   }
 
   async function getDomains(): Promise<DomainData[]> {
@@ -28,6 +30,8 @@ export default function Options() {
   }
 
   async function addDomain(domain: DomainData): Promise<{ error?: string }> {
+    const invalid = validateConfiguration(domain);
+    if (invalid) return { error: invalid };
     const data = await getData();
 
     const validatedUrl = await validateUrl(domain.url);
@@ -54,16 +58,19 @@ export default function Options() {
     const data = await getData();
     data.domains = data.domains.filter((config) => config.id !== domain.id);
     await save(data);
-
-    await Promise.all([storageRemove([getStateStorageKey(domain)]), removeHostPermissions(domain)]);
+    await storageRemove([getStateStorageKey(domain)]);
   }
 
   async function updateDomain(domain: DomainData): Promise<{ error?: string }> {
+    const invalid = validateConfiguration(domain);
+    if (invalid) return { error: invalid };
     const data = await getData();
     const index = data.domains.findIndex((config) => config.id === domain.id);
     if (index === -1) {
       return { error: `Domain with id ${domain.id} not found.` };
     }
+    if (domain.url !== data.domains[index].url)
+      return { error: "Existing domain names cannot be changed." };
     data.domains[index] = domain;
     await save(data);
     return { error: undefined };
@@ -93,12 +100,24 @@ export default function Options() {
     return { domains: Array.from(uniqueByUrl.values()) };
   }
 
-  function normalizeUrl(url: string): string {
-    return url
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .split("/")[0];
+  function normalizeUrl(value: string): string {
+    try {
+      const url = new URL(value.includes("://") ? value.trim() : `https://${value.trim()}`);
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.port)
+        return "";
+      return url.hostname.toLowerCase().replace(/\.$/, "");
+    } catch {
+      return "";
+    }
+  }
+
+  function validateConfiguration(domain: DomainData): string | undefined {
+    if (!Number.isFinite(domain.limitMs) || domain.limitMs <= 0)
+      return "Enter an hourly limit greater than zero.";
+    if (domain.downtimeSchedule && !isValidDowntimeSchedule(domain.downtimeSchedule))
+      return "Each day needs valid From and To times.";
+    if (!domain.downtimeSchedule && domain.downtimeRules.some((rule) => !isValidDowntimeRule(rule)))
+      return "Each downtime rule needs a day and valid, different start and end times.";
   }
 
   /**
@@ -134,7 +153,7 @@ export default function Options() {
     }
 
     const limitMs = Math.max(0, Math.floor(Number(config.limitMs) || 0));
-    if (!limitMs) {
+    if (!Number.isFinite(limitMs) || !limitMs) {
       return null;
     }
 
@@ -148,6 +167,9 @@ export default function Options() {
         ),
       ),
       downtimeRules: (config.downtimeRules ?? []).map(normalizeDowntimeRule),
+      ...(config.downtimeSchedule
+        ? { downtimeSchedule: structuredClone(config.downtimeSchedule) }
+        : {}),
     };
   }
 
@@ -169,20 +191,23 @@ export default function Options() {
   }
 
   function domainMatches(hostname: string, domain: string): boolean {
-    return hostname === domain || hostname.endsWith(`.${domain}`);
+    return hostname === domain || (coversSubdomains(domain) && hostname.endsWith(`.${domain}`));
   }
 
   function pathMatches(pathname: string, pathPrefix: string): boolean {
     return pathname === pathPrefix || pathname.startsWith(`${pathPrefix}/`);
   }
 
+  function coversSubdomains(domain: string): boolean {
+    return getDomain(domain, { allowPrivateDomains: true }) === domain;
+  }
+
   function getOriginPatterns(config: DomainData): string[] {
-    return [
-      `http://${config.url}/*`,
-      `http://*.${config.url}/*`,
-      `https://${config.url}/*`,
-      `https://*.${config.url}/*`,
-    ];
+    return ["http", "https"].flatMap((scheme) =>
+      coversSubdomains(config.url)
+        ? [`${scheme}://${config.url}/*`, `${scheme}://*.${config.url}/*`]
+        : [`${scheme}://${config.url}/*`],
+    );
   }
 
   async function requestHostPermissions(domain: DomainData): Promise<boolean> {
@@ -203,20 +228,14 @@ export default function Options() {
     return chrome.permissions.contains({ origins: getOriginPatterns(config) });
   }
 
-  async function removeHostPermissions(domain: DomainData): Promise<void> {
-    const origins = getOriginPatterns(domain);
-    if (origins.length === 0) {
-      return;
-    }
-
-    await chrome.permissions.remove({ origins });
-  }
-
   function getBlockedDomainForUrl(domains: DomainData[], url: string): DomainData | null {
     try {
       const parsedUrl = new URL(url);
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) return null;
+      const hostname = parsedUrl.hostname.toLowerCase().replace(/\.$/, "");
       return (
-        domains.find((config) => domainMatches(parsedUrl.hostname.toLowerCase(), config.url)) ??
+        domains.find((config) => config.url === hostname) ??
+        domains.find((config) => domainMatches(hostname, config.url)) ??
         null
       );
     } catch {
@@ -248,5 +267,6 @@ export default function Options() {
     validateUrl,
     hasHostPermissions,
     getOriginPatterns,
+    coversSubdomains,
   };
 }

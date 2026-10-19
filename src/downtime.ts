@@ -1,4 +1,4 @@
-import type { DowntimeRule } from "./types";
+import type { DomainData, DowntimeRule, DowntimeSchedule } from "./types";
 
 export type DowntimeStatus = {
   active: boolean;
@@ -63,5 +63,75 @@ export function isValidDowntimeRule(rule: DowntimeRule): boolean {
     rule.endMinutes >= 0 &&
     rule.endMinutes < 1440 &&
     (rule.allDay || rule.startMinutes !== rule.endMinutes)
+  );
+}
+
+/** Translate the single weekly schedule into the existing enforcement intervals. */
+export function getDowntimeRules(domain: DomainData): DowntimeRule[] {
+  const schedule = domain.downtimeSchedule;
+  if (!schedule) return domain.downtimeRules;
+  if (!schedule.enabled) return [];
+  return schedule.days
+    .filter((day) => day.enabled)
+    .map((day) => ({
+      id: `day-${day.weekday}`,
+      weekdays: [day.weekday],
+      startMinutes: day.startMinutes,
+      endMinutes: day.endMinutes,
+      allDay: day.startMinutes === day.endMinutes,
+      allowWhitelistedPaths: schedule.allowWhitelistedPaths,
+    }));
+}
+
+export function createDowntimeSchedule(rules: DowntimeRule[]): {
+  schedule: DowntimeSchedule;
+  hasConflicts: boolean;
+} {
+  let hasConflicts = new Set(rules.map((rule) => rule.allowWhitelistedPaths)).size > 1;
+  const days = Array.from({ length: 7 }, (_, weekday) => {
+    const matching = rules.filter((rule) => rule.weekdays.includes(weekday));
+    const first = matching[0];
+    if (
+      matching.some(
+        (rule) =>
+          rule.allDay !== first.allDay ||
+          rule.startMinutes !== first.startMinutes ||
+          rule.endMinutes !== first.endMinutes,
+      )
+    )
+      hasConflicts = true;
+    return {
+      weekday,
+      enabled: matching.length > 0,
+      startMinutes: first ? (first.allDay ? 0 : first.startMinutes) : 21 * 60,
+      endMinutes: first ? (first.allDay ? 0 : first.endMinutes) : 7 * 60,
+    };
+  });
+  return {
+    schedule: {
+      enabled: rules.length > 0,
+      allowWhitelistedPaths: rules.every((rule) => rule.allowWhitelistedPaths),
+      days,
+    },
+    hasConflicts,
+  };
+}
+
+export function isValidDowntimeSchedule(schedule: DowntimeSchedule): boolean {
+  return (
+    schedule.days.length === 7 &&
+    new Set(schedule.days.map((day) => day.weekday)).size === 7 &&
+    schedule.days.every(
+      (day) =>
+        Number.isInteger(day.weekday) &&
+        day.weekday >= 0 &&
+        day.weekday <= 6 &&
+        Number.isInteger(day.startMinutes) &&
+        day.startMinutes >= 0 &&
+        day.startMinutes < 1440 &&
+        Number.isInteger(day.endMinutes) &&
+        day.endMinutes >= 0 &&
+        day.endMinutes < 1440,
+    )
   );
 }
