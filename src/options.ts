@@ -112,8 +112,14 @@ export default function Options() {
   }
 
   function validateConfiguration(domain: DomainData): string | undefined {
-    if (!Number.isFinite(domain.limitMs) || domain.limitMs <= 0)
-      return "Enter an hourly limit greater than zero.";
+    if (!Number.isFinite(domain.limitMs) || domain.limitMs < 60_000 || domain.limitMs > 25 * 60_000)
+      return "Enter an allowance between 1 and 25 minutes.";
+    if (
+      !Number.isSafeInteger(domain.resetHours ?? 1) ||
+      (domain.resetHours ?? 1) < 1 ||
+      (domain.resetHours ?? 1) > 24
+    )
+      return "Enter a reset interval between 1 and 24 whole hours.";
     if (domain.downtimeSchedule && !isValidDowntimeSchedule(domain.downtimeSchedule))
       return "Each day needs valid From and To times.";
     if (!domain.downtimeSchedule && domain.downtimeRules.some((rule) => !isValidDowntimeRule(rule)))
@@ -161,6 +167,7 @@ export default function Options() {
       id: (config.id ? String(config.id).trim() : "") || domain,
       url: domain,
       limitMs,
+      resetHours: config.resetHours ?? 1,
       whitelistedPaths: Array.from(
         new Set(
           (config.whitelistedPaths ?? []).map(normalizePath).filter((path) => path.length > 0),

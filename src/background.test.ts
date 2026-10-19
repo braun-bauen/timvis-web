@@ -306,6 +306,48 @@ describe("popup settings and enforcement", () => {
     ).toBeUndefined();
   });
 
+  it("shares usage across a fixed two-hour window and resets exactly at its boundary", async () => {
+    const config = { ...domain("example.com"), resetHours: 2 };
+    await Options().updateDomain(config);
+    await message({ type: "tick", url: "https://example.com/", elapsedMs: config.limitMs });
+    vi.setSystemTime(new Date(2026, 9, 5, 13, 59));
+    expect(await message<StatusMessage>({ type: "getPopupStatus" })).toMatchObject({
+      usedMs: config.limitMs,
+      blocked: true,
+      resetAt: new Date(2026, 9, 5, 14).getTime(),
+    });
+    vi.setSystemTime(new Date(2026, 9, 5, 14));
+    expect(await message<StatusMessage>({ type: "getPopupStatus" })).toMatchObject({
+      usedMs: 0,
+      blocked: false,
+      resetAt: new Date(2026, 9, 5, 16).getTime(),
+    });
+  });
+
+  it("preserves usage when changing intervals and uses the new boundary even without ticks", async () => {
+    await message({ type: "tick", elapsedMs: 1000 });
+    await Options().updateDomain({ ...domain("example.com"), resetHours: 2 });
+    expect(await message<StatusMessage>({ type: "getPopupStatus" })).toMatchObject({
+      usedMs: 1000,
+      resetAt: new Date(2026, 9, 5, 14).getTime(),
+    });
+    await Options().updateDomain({ ...domain("example.com"), resetHours: 1 });
+    expect(await message<StatusMessage>({ type: "getPopupStatus" })).toMatchObject({
+      usedMs: 1000,
+    });
+    vi.setSystemTime(new Date(2026, 9, 5, 13));
+    expect(await message<StatusMessage>({ type: "getPopupStatus" })).toMatchObject({ usedMs: 0 });
+  });
+
+  it("rejects invalid reset intervals without saving", async () => {
+    for (const resetHours of [0, -1, 1.5, NaN, Infinity]) {
+      expect(
+        (await Options().updateDomain({ ...domain("example.com"), resetHours })).error,
+      ).toBeTruthy();
+    }
+    expect((await Options().getDomains())[0].resetHours).toBe(1);
+  });
+
   it("treats multi-label parent domains and exact subdomains correctly", () => {
     const options = Options();
     const parent = domain("example.co.uk");

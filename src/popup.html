@@ -89,21 +89,29 @@
             </div>
           </section>
           <div id="domain-settings" hidden>
-            <section class="editor-section" aria-labelledby="hourly-limit-heading">
-              <h2 id="hourly-limit-heading">Hourly limit</h2>
-              <div class="row">
-                <calcite-select id="unit" label-text="Unit">
-                  <calcite-option value="minutes">Minutes</calcite-option>
-                  <calcite-option value="seconds">Seconds</calcite-option>
-                </calcite-select>
-                <calcite-input
+            <section class="editor-section" aria-labelledby="usage-limit-heading">
+              <h2 id="usage-limit-heading">Usage limit</h2>
+              <div class="allowance-row">
+                <calcite-input-number
                   id="limit"
-                  label-text="Allowance"
-                  type="number"
+                  label="Allowance in minutes"
                   min="1"
+                  max="25"
                   step="1"
+                  scale="s"
                   required
-                ></calcite-input>
+                ></calcite-input-number>
+                <div><span id="minutes-label">minutes</span> per</div>
+                <calcite-input-number
+                  id="reset-hours"
+                  label="Reset interval in hours"
+                  min="1"
+                  max="24"
+                  step="1"
+                  scale="s"
+                  required
+                ></calcite-input-number>
+                <span id="hours-label">hour</span>
               </div>
             </section>
             <section class="editor-section" aria-labelledby="downtime-heading">

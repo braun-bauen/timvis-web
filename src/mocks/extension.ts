@@ -1,3 +1,4 @@
+import { getUsageWindow } from "../usage-window";
 import Options from "../options";
 import { evaluateDowntime, evaluateDowntimeAccess, getDowntimeRules } from "../downtime";
 import type { RuntimeMessage, ExtensionData } from "../types";
@@ -138,7 +139,7 @@ const mockChrome = {
         usedMs: 0,
         allowanceMs: domain.limitMs,
         remainingMs: domain.limitMs,
-        resetAt: new Date(new Date().setMinutes(60, 0, 0)).getTime(),
+        resetAt: getUsageWindow(domain.resetHours ?? 1).resetAt,
         downtimeActive: evaluateDowntime(getDowntimeRules(domain)).active,
       };
     },

@@ -1,3 +1,4 @@
+import { getUsageWindow, legacyResetAt } from "./usage-window";
 import { env } from "./env";
 import Options from "./options";
 import type { Action, DomainData, RuntimeMessage, StatusMessage, StoredState } from "./types";
@@ -18,14 +19,6 @@ function enqueue<T>(operation: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return result;
-}
-
-function getHourKey(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  return `${year}-${month}-${day}-${hour}`;
 }
 
 function getStateStorageKey(config: DomainData): string {
@@ -54,9 +47,12 @@ async function registerContentScripts(): Promise<void> {
 }
 
 async function getState(config: DomainData): Promise<StoredState> {
-  const currentHour = getHourKey();
+  const resetHours = config.resetHours ?? 1;
+  const window = getUsageWindow(resetHours);
   const defaultState: StoredState = {
-    hourKey: currentHour,
+    hourKey: window.key,
+    resetHours,
+    resetAt: window.resetAt,
     usedMs: 0,
     warningShown: false,
     blocked: false,
@@ -66,13 +62,18 @@ async function getState(config: DomainData): Promise<StoredState> {
   const stored = await storageGet<StoredState>(storageKey);
   const state = stored[storageKey] || defaultState;
 
-  if (!state || state.hourKey !== currentHour) {
+  const intervalChanged = (state.resetHours ?? 1) !== resetHours;
+  const previousReset = state.resetAt ?? legacyResetAt(state.hourKey);
+  if (intervalChanged ? Date.now() >= previousReset : state.hourKey !== window.key) {
     return defaultState;
   }
 
   return {
     ...defaultState,
     ...state,
+    hourKey: window.key,
+    resetHours,
+    resetAt: window.resetAt,
     blocked: state.usedMs >= config.limitMs,
   };
 }
@@ -237,7 +238,7 @@ async function handleGetStatus(
     usedMs: state.usedMs,
     allowanceMs: config.limitMs,
     remainingMs: Math.max(0, config.limitMs - state.usedMs),
-    resetAt: new Date(new Date().setMinutes(60, 0, 0)).getTime(),
+    resetAt: state.resetAt,
     downtimeActive: evaluateDowntime(getDowntimeRules(config)).active,
   };
 }
@@ -321,6 +322,12 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
 
   if (runtimeMessage.type === "optionsChanged") {
     enqueue(async () => {
+      for (const config of await options.getDomains()) {
+        const key = getStateStorageKey(config);
+        if ((await storageGet<StoredState>(key))[key]) {
+          await saveState(config, await getState(config));
+        }
+      }
       await registerContentScripts();
       if (runtimeMessage.addedDomain) {
         await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);

@@ -1,3 +1,4 @@
+import "@esri/calcite-components/components/calcite-input-number";
 import "@esri/calcite-components/components/calcite-shell";
 import "@esri/calcite-components/components/calcite-navigation";
 import "@esri/calcite-components/components/calcite-navigation-logo";
@@ -11,8 +12,6 @@ import "@esri/calcite-components/components/calcite-action";
 import "@esri/calcite-components/components/calcite-input";
 import "@esri/calcite-components/components/calcite-icon";
 import "@esri/calcite-components/components/calcite-text-area";
-import "@esri/calcite-components/components/calcite-select";
-import "@esri/calcite-components/components/calcite-option";
 import "@esri/calcite-components/components/calcite-notice";
 import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-button";
@@ -31,6 +30,7 @@ import "./popup.css";
 const options = Options();
 /** Select an element from the DOM */
 const el = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+const numberInput = (selector: string) => el<HTMLCalciteInputNumberElement>(selector);
 const input = (selector: string) => el<HTMLCalciteInputElement>(selector);
 let domains: DomainData[] = [];
 let editing: DomainData | undefined;
@@ -169,7 +169,7 @@ function showSuggestion(): void {
     ? "Timvis tracks HTTP and HTTPS websites. Choose a domain to manage its settings."
     : !status
       ? "Unable to read tracking status. You can still manage domains from the directory."
-      : "Track this site by choosing an hourly allowance, allowed paths, and downtime.";
+      : "Track this site by choosing an allowance, allowed paths, and downtime.";
 }
 
 function cancel(): void {
@@ -214,15 +214,19 @@ function renderUsage(): void {
     : "success";
   el("#summary-title").textContent =
     `${duration(value.usedMs ?? 0)} of ${duration(value.allowanceMs ?? 0)} used`;
-  el("#summary-message").textContent = value.debug
-    ? "Usage tracking and enforcement are disabled in this debug build."
-    : value.downtime
-      ? "Access is blocked by downtime. Allowed paths are unavailable unless the schedule allows them."
-      : value.blocked
-        ? "The hourly allowance has been used. Allowed paths remain accessible."
-        : value.whitelisted
-          ? "This allowed path pauses usage tracking and remains accessible."
-          : "Usage is recorded while the webpage is visible and focused.";
+  const resetText = value.resetAt
+    ? ` Resets ${new Date(value.resetAt).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
+    : "";
+  el("#summary-message").textContent =
+    (value.debug
+      ? "Usage tracking and enforcement are disabled in this debug build."
+      : value.downtime
+        ? "Access is blocked by downtime. Allowed paths are unavailable unless the schedule allows them."
+        : value.blocked
+          ? "The allowance has been used. Allowed paths remain accessible."
+          : value.whitelisted
+            ? "This allowed path pauses usage tracking and remains accessible."
+            : "Usage is recorded while the webpage is visible and focused.") + resetText;
 }
 
 async function refreshStatus(selectCurrent = false): Promise<void> {
@@ -307,10 +311,9 @@ function openEditor(domain?: DomainData, hostname = ""): void {
     el<HTMLCalcitePanelElement>("#main").heading = editing.url;
   }
 
-  const seconds = editing.limitMs / 1000;
-  const minutes = seconds % 60 === 0;
-  input("#limit").value = String(minutes ? seconds / 60 : seconds);
-  el<HTMLCalciteSelectElement>("#unit").value = minutes ? "minutes" : "seconds";
+  numberInput("#limit").value = String(editing.limitMs / 60_000);
+  numberInput("#reset-hours").value = String(editing.resetHours ?? 1);
+  updateAllowanceLabels();
   el<HTMLCalciteTextAreaElement>("#paths").value = editing.whitelistedPaths.join("\n");
   el("#delete-domain").hidden = isNew;
   renderDowntime();
@@ -379,10 +382,8 @@ async function save(): Promise<void> {
     const domain: DomainData = {
       ...editing,
       url,
-      limitMs: Math.floor(
-        Number(input("#limit").value) *
-          (el<HTMLCalciteSelectElement>("#unit").value === "seconds" ? 1000 : 60_000),
-      ),
+      limitMs: Math.floor(Number(numberInput("#limit").value) * 60_000),
+      resetHours: Number(numberInput("#reset-hours").value),
       whitelistedPaths: el<HTMLCalciteTextAreaElement>("#paths")
         .value.split(/\n|,/)
         .map(options.normalizePath)
@@ -517,3 +518,13 @@ async function initialize(): Promise<void> {
   }, 1000);
 }
 void initialize().catch(() => emitAlert({ title: "Unable to load domains", kind: "danger" }));
+
+function updateAllowanceLabels(): void {
+  el("#minutes-label").textContent =
+    Number(numberInput("#limit").value) === 1 ? "minute" : "minutes";
+  el("#hours-label").textContent =
+    Number(numberInput("#reset-hours").value) === 1 ? "hour" : "hours";
+}
+for (const selector of ["#limit", "#reset-hours"]) {
+  numberInput(selector).addEventListener("calciteInputNumberInput", updateAllowanceLabels);
+}

@@ -22,6 +22,8 @@ export type StatusMessage = {
 
 export type StoredState = {
   hourKey: string;
+  resetHours?: number;
+  resetAt?: number;
   usedMs: number;
   warningShown: boolean;
   blocked: boolean;
@@ -31,6 +33,7 @@ export type DomainData = {
   id: string;
   url: string;
   limitMs: number;
+  resetHours?: number;
   whitelistedPaths: string[];
   downtimeRules: DowntimeRule[];
   downtimeSchedule?: DowntimeSchedule;

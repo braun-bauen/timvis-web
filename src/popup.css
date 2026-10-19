@@ -158,3 +158,13 @@ p {
 .downtime-header h2 {
   margin: 0;
 }
+
+.allowance-row {
+  display: flex;
+  align-items: center;
+  gap: var(--calcite-spacing-sm);
+}
+
+.allowance-row calcite-input-number {
+  inline-size: 5rem;
+}
