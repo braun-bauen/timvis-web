@@ -54,6 +54,10 @@ calcite-shell-panel[slot="panel-start"] {
   --calcite-shell-panel-min-width: 205px;
 }
 
+calcite-shell-panel[slot="panel-start"] > calcite-panel {
+  --calcite-panel-footer-background-color: var(--calcite-color-background);
+}
+
 .directory-empty {
   padding: var(--calcite-spacing-md);
 }
@@ -62,8 +66,10 @@ calcite-shell-panel[slot="panel-start"] {
   --calcite-panel-space: var(--calcite-spacing-md);
 }
 
-.editor-section + .editor-section {
-  margin-block-start: calc(2 * var(--calcite-spacing-md));
+#domain-settings:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--calcite-spacing-xxl);
 }
 
 .editor-section h2 {
@@ -144,15 +150,10 @@ p {
   gap: var(--calcite-spacing-sm);
 }
 
-#add-domain {
-  margin-inline: var(--calcite-spacing-sm);
-}
-
 .downtime-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-block-end: var(--calcite-spacing-md);
 }
 
 .downtime-header h2 {

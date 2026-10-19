@@ -8,37 +8,14 @@
   </head>
   <body>
     <calcite-shell>
-      <calcite-navigation slot="header" label="Timvis" scale="s">
-        <calcite-navigation-logo slot="logo" heading="Timvis"></calcite-navigation-logo>
-        <calcite-action-group
-          slot="content-end"
-          layout="horizontal"
-          label="Color theme"
-          selection-mode="single-persist"
-        >
-          <calcite-action
-            data-theme="light"
-            text="Use light theme"
-            icon="brightness"
-          ></calcite-action>
-          <calcite-action data-theme="dark" text="Use dark theme" icon="moon"></calcite-action>
-          <calcite-action
-            data-theme="system"
-            text="Use system theme"
-            icon="monitor"
-          ></calcite-action>
-        </calcite-action-group>
-        <calcite-action
-          id="add-domain"
-          class="action-brand"
-          slot="content-end"
-          text="Add domain"
-          text-enabled
-          icon="plus"
-        ></calcite-action>
-      </calcite-navigation>
       <calcite-shell-panel slot="panel-start" width="s">
         <calcite-panel heading="All sites">
+          <calcite-action
+            id="add-domain"
+            slot="header-actions-end"
+            text="Add domain"
+            icon="plus"
+          ></calcite-action>
           <calcite-list
             id="directory"
             label="Configured sites"
@@ -47,6 +24,25 @@
             selection-mode="single-persist"
             selection-appearance="highlight"
           ></calcite-list>
+          <calcite-action
+            id="settings-menu-trigger"
+            slot="footer-start"
+            text="Settings"
+            icon="gear"
+          ></calcite-action>
+          <calcite-dropdown id="settings-menu" placement="top-start">
+            <calcite-dropdown-group group-title="Color theme" selection-mode="single">
+              <calcite-dropdown-item data-theme="light" icon-start="brightness"
+                >Light</calcite-dropdown-item
+              >
+              <calcite-dropdown-item data-theme="dark" icon-start="moon"
+                >Dark</calcite-dropdown-item
+              >
+              <calcite-dropdown-item data-theme="system" icon-start="monitor" selected
+                >System</calcite-dropdown-item
+              >
+            </calcite-dropdown-group>
+          </calcite-dropdown>
           <p slot="empty-content" class="directory-empty">No sites configured.</p>
         </calcite-panel>
       </calcite-shell-panel>
@@ -65,6 +61,21 @@
             text="Delete site"
             icon="trash"
             slot="header-actions-end"
+          ></calcite-action>
+
+          <calcite-action
+            id="cancel"
+            slot="header-actions-end"
+            text="Cancel changes"
+            icon="reset"
+          ></calcite-action>
+          <calcite-action
+            id="save"
+            slot="header-actions-end"
+            text="Save"
+            text-enabled
+            icon="save"
+            class="action-brand"
           ></calcite-action>
 
           <section id="summary" aria-live="polite">
@@ -139,8 +150,6 @@
               ></calcite-text-area>
             </section>
           </div>
-          <calcite-button id="cancel" slot="footer-end" appearance="outline">Cancel</calcite-button>
-          <calcite-button id="save" slot="footer-end">Save</calcite-button>
           <calcite-dialog id="delete-dialog" modal>
             <p>
               Its settings and usage will be immediately deleted. Browser-granted site permissions

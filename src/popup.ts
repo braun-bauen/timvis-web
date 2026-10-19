@@ -1,8 +1,8 @@
 import "@esri/calcite-components/components/calcite-input-number";
 import "@esri/calcite-components/components/calcite-shell";
-import "@esri/calcite-components/components/calcite-navigation";
-import "@esri/calcite-components/components/calcite-navigation-logo";
-import "@esri/calcite-components/components/calcite-action-group";
+import "@esri/calcite-components/components/calcite-dropdown";
+import "@esri/calcite-components/components/calcite-dropdown-group";
+import "@esri/calcite-components/components/calcite-dropdown-item";
 import "@esri/calcite-components/components/calcite-list";
 import "@esri/calcite-components/components/calcite-list-item";
 import "@esri/calcite-components/components/calcite-panel";
@@ -37,6 +37,7 @@ let editing: DomainData | undefined;
 let isNew = false;
 let schedule: DowntimeSchedule;
 let downtimeChanged = false;
+let savedEditorValues = "";
 let siteUrl: string | undefined;
 let siteHostname = "";
 let status: StatusMessage | undefined;
@@ -142,9 +143,9 @@ function createDirectory(): void {
   updateDirectorySelection();
 }
 
-function updateThemeActions(preference: ThemePreference): void {
-  document.querySelectorAll<HTMLCalciteActionElement>("[data-theme]").forEach((action) => {
-    action.active = action.dataset.theme === preference;
+function updateThemeSelection(preference: ThemePreference): void {
+  document.querySelectorAll<HTMLCalciteDropdownItemElement>("[data-theme]").forEach((action) => {
+    action.selected = action.dataset.theme === preference;
   });
 }
 
@@ -317,6 +318,8 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   el<HTMLCalciteTextAreaElement>("#paths").value = editing.whitelistedPaths.join("\n");
   el("#delete-domain").hidden = isNew;
   renderDowntime();
+  savedEditorValues = editorValues();
+  updateUnsavedIndicator();
   if (!editing.downtimeSchedule && legacySchedule.hasConflicts)
     emitAlert({
       title: "Downtime needs review",
@@ -326,6 +329,21 @@ function openEditor(domain?: DomainData, hostname = ""): void {
     });
   updateDirectorySelection();
   renderUsage();
+}
+
+function editorValues(): string {
+  return JSON.stringify({
+    domain: input("#domain-name").value,
+    minutes: numberInput("#limit").value,
+    hours: numberInput("#reset-hours").value,
+    paths: el<HTMLCalciteTextAreaElement>("#paths").value,
+    schedule,
+  });
+}
+
+function updateUnsavedIndicator(): void {
+  el<HTMLCalciteActionElement>("#cancel").indicator =
+    !!editing && editorValues() !== savedEditorValues;
 }
 
 function renderDowntime(): void {
@@ -375,7 +393,7 @@ function renderDowntime(): void {
 async function save(): Promise<void> {
   if (!editing || saving) return;
   saving = true;
-  el<HTMLCalciteButtonElement>("#save").loading = true;
+  el<HTMLCalciteActionElement>("#save").loading = true;
   try {
     const url = isNew ? await validateNewDomain() : editing.url;
     if (!url) return;
@@ -418,7 +436,7 @@ async function save(): Promise<void> {
     });
   } finally {
     saving = false;
-    el<HTMLCalciteButtonElement>("#save").loading = false;
+    el<HTMLCalciteActionElement>("#save").loading = false;
   }
 }
 
@@ -435,6 +453,7 @@ domainHeader.addEventListener("calciteInlineEditableEditCancel", () => {
   if (isNew && editing) {
     input("#domain-name").value = editing.url;
     input("#domain-name").status = "idle";
+    updateUnsavedIndicator();
   }
 });
 input("#domain-name").addEventListener("calciteInputInput", () => {
@@ -493,11 +512,11 @@ el("#delete-confirm").addEventListener("click", async () => {
     el<HTMLCalciteButtonElement>("#delete-confirm").loading = false;
   }
 });
-document.querySelectorAll<HTMLCalciteActionElement>("[data-theme]").forEach((action) => {
-  action.addEventListener("click", () => {
+document.querySelectorAll<HTMLCalciteDropdownItemElement>("[data-theme]").forEach((action) => {
+  action.addEventListener("calciteDropdownItemSelect", () => {
     const preference = action.dataset.theme;
     if (!isThemePreference(preference)) return;
-    updateThemeActions(preference);
+    updateThemeSelection(preference);
     void setThemePreference(preference);
   });
 });
@@ -509,7 +528,8 @@ document.querySelectorAll<HTMLElement>("#debug-actions [data-action]").forEach((
     });
   });
 });
-void setupTheme(updateThemeActions);
+el<HTMLCalciteDropdownElement>("#settings-menu").referenceElement = el("#settings-menu-trigger");
+void setupTheme(updateThemeSelection);
 async function initialize(): Promise<void> {
   await loadDomains();
   await refreshStatus(true);
@@ -527,4 +547,15 @@ function updateAllowanceLabels(): void {
 }
 for (const selector of ["#limit", "#reset-hours"]) {
   numberInput(selector).addEventListener("calciteInputNumberInput", updateAllowanceLabels);
+}
+
+for (const eventName of [
+  "calciteInputInput",
+  "calciteInputNumberInput",
+  "calciteTextAreaInput",
+  "calciteSwitchChange",
+  "calciteCheckboxChange",
+  "calciteInputTimePickerChange",
+]) {
+  el("#editor").addEventListener(eventName, updateUnsavedIndicator);
 }
