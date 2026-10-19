@@ -81,7 +81,6 @@
           <section id="summary" aria-live="polite">
             <calcite-notice open width="full" kind="success">
               <div id="summary-title" slot="title"></div>
-              <div id="summary-message" slot="message"></div>
               <calcite-action
                 id="setup-site"
                 hidden
@@ -101,8 +100,8 @@
           </section>
           <div id="domain-settings" hidden>
             <section class="editor-section" aria-labelledby="usage-limit-heading">
-              <h2 id="usage-limit-heading">Usage limit</h2>
-              <div class="allowance-row">
+              <h2 id="usage-limit-heading">Hourly limit</h2>
+              <div class="allowance-row editor-top-space">
                 <calcite-input-number
                   id="limit"
                   label="Allowance in minutes"
@@ -127,24 +126,35 @@
             </section>
             <section class="editor-section" aria-labelledby="downtime-heading">
               <div class="downtime-header">
-                <h2 id="downtime-heading">Downtime</h2>
-                <calcite-switch id="downtime-enabled" label="Enable downtime"></calcite-switch>
+                <h2 id="downtime-heading">Scheduled blocking</h2>
+                <calcite-switch
+                  id="downtime-enabled"
+                  label="Enable scheduled blocking"
+                ></calcite-switch>
               </div>
+              <p class="section-description">
+                Set scheduled times where site usage is blocked completely.
+              </p>
               <div id="downtime-settings" hidden>
-                <div class="downtime-controls">
+                <div class="downtime-controls editor-top-space">
                   <calcite-switch
                     id="downtime-block-paths"
                     label-text-end="Block allowed paths"
                   ></calcite-switch>
                 </div>
-                <div id="downtime-days"></div>
+                <div id="downtime-days" class="editor-top-space"></div>
               </div>
             </section>
             <section class="editor-section" aria-labelledby="allowed-paths-heading">
               <h2 id="allowed-paths-heading">Allowed paths</h2>
+              <p id="paths-description" class="section-description">
+                Paths (one per line). These page paths remain accessible during downtime.
+              </p>
               <calcite-text-area
                 id="paths"
-                label-text="Paths (one per line). These page paths remain accessible during downtime."
+                class="editor-top-space"
+                label="Allowed paths"
+                aria-describedby="paths-description"
                 rows="3"
                 placeholder="/inbox&#10;/settings"
               ></calcite-text-area>

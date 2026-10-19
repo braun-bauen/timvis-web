@@ -73,9 +73,9 @@ calcite-shell-panel[slot="panel-start"] > calcite-panel {
 }
 
 .editor-section h2 {
-  margin: 0 0 var(--calcite-spacing-md);
-  font-size: var(--calcite-font-size-1);
+  font-size: var(--calcite-font-size-2);
   font-weight: var(--calcite-font-weight-medium);
+  color: var(--calcite-color-text-1);
 }
 
 .row {
@@ -83,10 +83,6 @@ calcite-shell-panel[slot="panel-start"] > calcite-panel {
   gap: var(--calcite-spacing-sm);
   flex-flow: row wrap;
 }
-
-/* .row > calcite-input { */
-/*   flex: 1; */
-/* } */
 
 h1 {
   font-size: var(--calcite-font-size-2);
@@ -113,10 +109,31 @@ p {
   block-size: 100%;
 }
 
+#summary {
+  margin-block-end: var(--calcite-spacing-md);
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--calcite-spacing-md);
+}
+
+#debug-actions:not([hidden]) {
+  display: flex;
+  gap: var(--calcite-spacing-sm);
+}
+
+.downtime-header {
+  display: flex;
+  align-items: center;
+  gap: var(--calcite-spacing-md);
+}
+
+#downtime-enabled {
+  margin-block-end: -1px;
+}
+
 .downtime-controls {
   display: grid;
   gap: var(--calcite-spacing-md);
-  margin-block: var(--calcite-spacing-lg);
 }
 
 .downtime-day {
@@ -138,28 +155,6 @@ p {
   align-items: center;
 }
 
-#summary {
-  margin-block-end: var(--calcite-spacing-md);
-  display: flex;
-  flex-flow: column nowrap;
-  gap: var(--calcite-spacing-md);
-}
-
-#debug-actions:not([hidden]) {
-  display: flex;
-  gap: var(--calcite-spacing-sm);
-}
-
-.downtime-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.downtime-header h2 {
-  margin: 0;
-}
-
 .allowance-row {
   display: flex;
   align-items: center;
@@ -168,4 +163,14 @@ p {
 
 .allowance-row calcite-input-number {
   inline-size: 5rem;
+}
+
+.editor-section h2,
+.section-description {
+  margin: 0;
+  padding: 0;
+}
+
+.editor-top-space {
+  margin-block-start: var(--calcite-spacing-xl);
 }

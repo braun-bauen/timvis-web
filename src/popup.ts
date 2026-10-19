@@ -166,11 +166,6 @@ function showSuggestion(): void {
     : !status
       ? "Status unavailable"
       : "This site isn't tracked";
-  el("#summary-message").textContent = !siteHostname
-    ? "Timvis tracks HTTP and HTTPS websites. Choose a domain to manage its settings."
-    : !status
-      ? "Unable to read tracking status. You can still manage domains from the directory."
-      : "Track this site by choosing an allowance, allowed paths, and downtime.";
 }
 
 function cancel(): void {
@@ -213,21 +208,12 @@ function renderUsage(): void {
   el<HTMLCalciteNoticeElement>("#summary calcite-notice").kind = value.blocked
     ? "danger"
     : "success";
-  el("#summary-title").textContent =
-    `${duration(value.usedMs ?? 0)} of ${duration(value.allowanceMs ?? 0)} used`;
   const resetText = value.resetAt
-    ? ` Resets ${new Date(value.resetAt).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
+    ? `. Resets ${new Date(value.resetAt).toLocaleTimeString([], { hour: "numeric", hour12: true })}.`
     : "";
-  el("#summary-message").textContent =
-    (value.debug
-      ? "Usage tracking and enforcement are disabled in this debug build."
-      : value.downtime
-        ? "Access is blocked by downtime. Allowed paths are unavailable unless the schedule allows them."
-        : value.blocked
-          ? "The allowance has been used. Allowed paths remain accessible."
-          : value.whitelisted
-            ? "This allowed path pauses usage tracking and remains accessible."
-            : "Usage is recorded while the webpage is visible and focused.") + resetText;
+  el("#summary-title").textContent = value.downtime
+    ? `Blocked by a schedule${resetText}`
+    : `${Math.floor((value.usedMs ?? 0) / 60_000)} / ${Math.floor((value.allowanceMs ?? 0) / 60_000)} minutes used${resetText}`;
 }
 
 async function refreshStatus(selectCurrent = false): Promise<void> {
