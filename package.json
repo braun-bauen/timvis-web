@@ -8,8 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "dev:popup": "vp dev --open /src/popup.html",
-    "dev:options": "VITE_MOCK_EXTENSION=true vp dev",
+    "dev:popup": "VITE_MOCK_EXTENSION=true vp dev --open /src/popup.html",
     "build": "vp build",
     "build:debug": "VITE_DEBUG=true vp build",
     "test": "vp test run",
@@ -17,7 +16,8 @@
     "prepare": "vp config"
   },
   "dependencies": {
-    "@esri/calcite-components": "^5.1.1"
+    "@esri/calcite-components": "^5.1.1",
+    "tldts": "^7.4.18"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.43",

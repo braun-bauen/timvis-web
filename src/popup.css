@@ -4,56 +4,169 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
-  padding: 18px;
-  min-width: 260px;
-  font-family: "Avenir Next", "Avenir", "Gill Sans", "Trebuchet MS", "Verdana", sans-serif;
+  padding: 0;
+  width: 780px;
+  height: 580px;
+  font-family: var(--calcite-font-family);
   color: var(--calcite-color-text-1);
-  background: var(--calcite-color-foreground-1);
+  background: var(--calcite-color-background);
 }
 
-#title {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
+:root {
+  --timvis-brand-hue: 235;
+  --timvis-brand-saturation: 18%;
+  --timvis-brand-lightness: 36%;
+  --timvis-brand-lightness-hover: 30%;
+  --timvis-brand-lightness-press: 20%;
+
+  --calcite-color-brand: hsl(
+    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness)
+  );
+  --calcite-color-brand-hover: hsl(
+    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness-hover)
+  );
+  --calcite-color-brand-press: hsl(
+    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness-press)
+  );
 }
 
-#status {
-  margin-top: 12px;
-  font-size: 14px;
-  font-weight: 500;
-
-  &.debug {
-    color: #4cd964;
-  }
-  &.block {
-    color: #ff6b5c;
-  }
+.calcite-mode-dark {
+  --timvis-brand-hue: 234;
+  --timvis-brand-saturation: 24%;
+  --timvis-brand-lightness: 68%;
+  --timvis-brand-lightness-hover: 76%;
+  --timvis-brand-lightness-press: 82%;
 }
 
-#actions {
-  margin-top: 14px;
+.action-brand {
+  --calcite-action-background-color: var(--calcite-color-brand);
+  --calcite-action-background-color-hover: var(--calcite-color-brand-hover);
+  --calcite-action-background-color-press: var(--calcite-color-brand-press);
+  --calcite-action-text-color: var(--calcite-color-text-inverse);
+  --calcite-action-text-color-press: var(--calcite-color-text-inverse);
+}
+
+calcite-shell-panel[slot="panel-start"] {
+  --calcite-shell-panel-width: 205px;
+  --calcite-shell-panel-min-width: 205px;
+}
+
+.directory-empty {
+  padding: var(--calcite-spacing-md);
+}
+
+#main {
+  --calcite-panel-space: var(--calcite-spacing-md);
+}
+
+#domain-settings:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--calcite-spacing-xxl);
+}
+
+.editor-section h2 {
+  font-size: var(--calcite-font-size-2);
+  font-weight: var(--calcite-font-weight-medium);
+  color: var(--calcite-color-text-1);
+}
+
+.row {
+  display: flex;
+  gap: var(--calcite-spacing-sm);
+  flex-flow: row wrap;
+}
+
+h1 {
+  font-size: var(--calcite-font-size-2);
+  margin: 0 0 var(--calcite-spacing-md);
+}
+
+p {
+  line-height: 1.5;
+  color: var(--calcite-color-text-1);
+}
+
+#allowance {
+  font-size: 20px;
+}
+
+.usage-meta {
+  margin-block: 8px;
+}
+
+#editor {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  block-size: 100%;
+}
+
+#summary:not([hidden]) {
+  margin-block-end: var(--calcite-spacing-xxl);
   display: flex;
   flex-flow: column nowrap;
-  gap: 12px;
-
-  &[hidden] {
-    display: none;
-  }
-
-  button {
-    border: 1px solid var(--calcite-color-border-1);
-    border-radius: 10px;
-    padding: 0.5rem;
-    font: inherit;
-    color: var(--calcite-color-text-1);
-    background: var(--calcite-color-foreground-2);
-    cursor: pointer;
-  }
+  gap: var(--calcite-spacing-md);
 }
 
-#hint {
-  margin-top: 14px;
-  font-size: 11px;
+#debug-actions:not([hidden]) {
+  display: flex;
+  gap: var(--calcite-spacing-sm);
+}
+
+.downtime-header {
+  display: flex;
+  align-items: center;
+  gap: var(--calcite-spacing-md);
+}
+
+#downtime-enabled {
+  margin-block-end: -1px;
+}
+
+.downtime-controls {
+  display: grid;
+  gap: var(--calcite-spacing-md);
+}
+
+.downtime-day {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--calcite-spacing-sm);
+  padding-block: var(--calcite-spacing-sm);
+  --calcite-label-margin-bottom: 0;
+}
+
+.downtime-day + .downtime-day {
+  border-top: 1px solid var(--calcite-color-border-3);
+}
+
+.downtime-day-times {
+  display: flex;
+  gap: var(--calcite-spacing-sm);
+  align-items: center;
+}
+
+.allowance-row {
+  display: flex;
+  align-items: center;
+  gap: var(--calcite-spacing-sm);
+}
+
+.allowance-row calcite-input-number {
+  inline-size: 5rem;
+}
+
+.editor-section h2,
+.section-description {
+  margin: 0;
+  padding: 0;
+}
+
+.editor-top-space {
+  margin-block-start: var(--calcite-spacing-xl);
 }

@@ -1,21 +1,24 @@
+import { getUsageWindow, legacyResetAt } from "./usage-window";
 import { env } from "./env";
 import Options from "./options";
 import type { Action, DomainData, RuntimeMessage, StatusMessage, StoredState } from "./types";
 import { storageGet, storageSet } from "./utils";
-import { evaluateDowntimeAccess } from "./downtime";
+import { evaluateDowntime, evaluateDowntimeAccess, getDowntimeRules } from "./downtime";
 
 const WARN_BEFORE_MS = 60 * 1000;
 const STATE_STORAGE_PREFIX = "timvis_state";
 const CONTENT_SCRIPT_ID = "timvis_content";
 
 const options = Options();
-
-function getHourKey(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  return `${year}-${month}-${day}-${hour}`;
+// Serialize state reads and writes so ticks and webpage warnings cannot overwrite each other.
+let pending = Promise.resolve();
+function enqueue<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pending.then(operation);
+  pending = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
 function getStateStorageKey(config: DomainData): string {
@@ -44,9 +47,12 @@ async function registerContentScripts(): Promise<void> {
 }
 
 async function getState(config: DomainData): Promise<StoredState> {
-  const currentHour = getHourKey();
+  const resetHours = config.resetHours ?? 1;
+  const window = getUsageWindow(resetHours);
   const defaultState: StoredState = {
-    hourKey: currentHour,
+    hourKey: window.key,
+    resetHours,
+    resetAt: window.resetAt,
     usedMs: 0,
     warningShown: false,
     blocked: false,
@@ -56,14 +62,19 @@ async function getState(config: DomainData): Promise<StoredState> {
   const stored = await storageGet<StoredState>(storageKey);
   const state = stored[storageKey] || defaultState;
 
-  if (!state || state.hourKey !== currentHour) {
+  const intervalChanged = (state.resetHours ?? 1) !== resetHours;
+  const previousReset = state.resetAt ?? legacyResetAt(state.hourKey);
+  if (intervalChanged ? Date.now() >= previousReset : state.hourKey !== window.key) {
     return defaultState;
   }
 
   return {
     ...defaultState,
     ...state,
-    blocked: state.blocked ?? state.usedMs >= config.limitMs,
+    hourKey: window.key,
+    resetHours,
+    resetAt: window.resetAt,
+    blocked: state.usedMs >= config.limitMs,
   };
 }
 
@@ -82,9 +93,10 @@ function sendMessageToTab(tabId: number | undefined | null, message: Action): vo
 }
 
 async function sendMessageToDomainTabs(config: DomainData, message: Action): Promise<void> {
+  const domains = await options.getDomains();
   const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
   for (const tab of tabs) {
-    if (tab.url && options.getBlockedDomainForUrl([config], tab.url)) {
+    if (tab.url && options.getBlockedDomainForUrl(domains, tab.url)?.id === config.id) {
       sendMessageToTab(tab.id, message);
     }
   }
@@ -145,7 +157,7 @@ async function handleTick(
 
   const state = await getState(config);
   const whitelisted = options.isWhitelistedUrl(config, url);
-  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
+  const access = evaluateDowntimeAccess(getDowntimeRules(config), whitelisted);
   if (state.blocked || !access.shouldTrackUsage) {
     return;
   }
@@ -154,7 +166,9 @@ async function handleTick(
 
   if (state.usedMs >= config.limitMs && !state.blocked) {
     state.blocked = true;
-    await sendMessageToDomainTabs(config, "block");
+    await saveState(config, state);
+    await sendMessageToDomainTabs(config, "refresh");
+    return;
   } else if (warnAtMs > 0 && state.usedMs >= warnAtMs && !state.warningShown) {
     state.warningShown = true;
     sendMessageToTab(senderTabId, "warn");
@@ -163,8 +177,13 @@ async function handleTick(
   await saveState(config, state);
 }
 
-async function handleGetStatus(url: string | undefined): Promise<StatusMessage> {
-  if (env.debug) {
+async function handleGetStatus(
+  url: string | undefined,
+  readOnly = false,
+  domainConfigId?: string,
+  loadedDomains?: DomainData[],
+): Promise<StatusMessage> {
+  if (env.debug && !readOnly) {
     return {
       blocked: false,
       downtime: false,
@@ -174,7 +193,12 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
     };
   }
 
-  const config = await getConfigForUrl(url);
+  const domains = loadedDomains ?? (await options.getDomains());
+  const config =
+    readOnly && domainConfigId
+      ? (domains.find((domain) => domain.id === domainConfigId) ?? null)
+      : options.getBlockedDomainForUrl(domains, url ?? "");
+  if (readOnly && domainConfigId && config) url = `https://${config.url}/`;
   if (!config || !url) {
     return {
       blocked: false,
@@ -187,11 +211,12 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
 
   const whitelisted = options.isWhitelistedUrl(config, url);
   const state = await getState(config);
-  const access = evaluateDowntimeAccess(config.downtimeRules, whitelisted);
+  const access = evaluateDowntimeAccess(getDowntimeRules(config), whitelisted);
   const warnAtMs = config.limitMs - WARN_BEFORE_MS;
   let showWarning = false;
 
   if (
+    !readOnly &&
     !whitelisted &&
     !access.downtimeBlocked &&
     warnAtMs > 0 &&
@@ -208,10 +233,15 @@ async function handleGetStatus(url: string | undefined): Promise<StatusMessage> 
     blocked: access.downtimeBlocked || (!whitelisted && state.blocked),
     downtime: access.downtimeBlocked,
     showWarning,
-    debug: false,
+    debug: env.debug,
     whitelisted: access.accessibleByWhitelist,
     domainConfigId: config.id,
     domain: config.url,
+    usedMs: state.usedMs,
+    allowanceMs: config.limitMs,
+    remainingMs: Math.max(0, config.limitMs - state.usedMs),
+    resetAt: state.resetAt,
+    downtimeActive: evaluateDowntime(getDowntimeRules(config)).active,
   };
 }
 
@@ -258,14 +288,39 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     const elapsedMs = Math.max(0, Number(runtimeMessage.elapsedMs) || 0);
     const senderTabId = sender?.tab?.id ?? null;
     const url = runtimeMessage.url ?? sender?.tab?.url;
-    handleTick(elapsedMs, senderTabId, url)
+    enqueue(() => handleTick(elapsedMs, senderTabId, url))
       .then(() => sendResponse({ ok: true }))
       .catch(() => sendResponse({ ok: false }));
     return true;
   }
 
-  if (runtimeMessage.type === "getStatus") {
-    handleGetStatus(runtimeMessage.url ?? sender?.tab?.url)
+  if (runtimeMessage.type === "getPopupStatuses") {
+    enqueue(async () => {
+      const domains = await options.getDomains();
+      const url = runtimeMessage.url ?? sender?.tab?.url;
+      const currentSite = await handleGetStatus(url, true, undefined, domains);
+      const statuses = await Promise.all(
+        domains.map((domain) =>
+          domain.id === currentSite.domainConfigId
+            ? currentSite
+            : handleGetStatus(undefined, true, domain.id, domains),
+        ),
+      );
+      return { currentSite, domains: statuses };
+    })
+      .then(sendResponse)
+      .catch(() => sendResponse(undefined));
+    return true;
+  }
+
+  if (runtimeMessage.type === "getStatus" || runtimeMessage.type === "getPopupStatus") {
+    enqueue(() =>
+      handleGetStatus(
+        runtimeMessage.url ?? sender?.tab?.url,
+        runtimeMessage.type === "getPopupStatus",
+        runtimeMessage.domainConfigId,
+      ),
+    )
       .then((status) => sendResponse(status))
       .catch(() =>
         sendResponse({
@@ -280,30 +335,35 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   }
 
   if (runtimeMessage.type === "debug") {
-    handleDebugAction(runtimeMessage.action)
+    enqueue(() => handleDebugAction(runtimeMessage.action))
       .then((result) => sendResponse(result))
       .catch(() => sendResponse({ ok: false }));
     return true;
   }
 
   if (runtimeMessage.type === "optionsChanged") {
-    registerContentScripts()
-      .then(async () => {
-        if (runtimeMessage.addedDomain) {
-          await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
-        } else {
-          const domains = await options.getDomains();
-          const tabs = await chrome.tabs.query({
-            url: ["http://*/*", "https://*/*"],
-          });
-          tabs.forEach((tab) => {
-            if (tab.url && options.getBlockedDomainForUrl(domains, tab.url)) {
-              sendMessageToTab(tab.id, "refresh");
-            }
-          });
+    enqueue(async () => {
+      for (const config of await options.getDomains()) {
+        const key = getStateStorageKey(config);
+        if ((await storageGet<StoredState>(key))[key]) {
+          await saveState(config, await getState(config));
         }
-        sendResponse({ ok: true });
-      })
+      }
+      await registerContentScripts();
+      if (runtimeMessage.addedDomain) {
+        await refreshOrInjectNewDomainTabs(runtimeMessage.addedDomain);
+      } else {
+        const tabs = await chrome.tabs.query({
+          url: ["http://*/*", "https://*/*"],
+        });
+        tabs.forEach((tab) => {
+          if (tab.url) {
+            sendMessageToTab(tab.id, "refresh");
+          }
+        });
+      }
+    })
+      .then(() => sendResponse({ ok: true }))
       .catch(() => sendResponse({ ok: false }));
     return true;
   }

@@ -99,7 +99,7 @@ function showBlock(): void {
 
   const dialog = createDialog({
     type: "block",
-    message: `${blockedDomain} is ${inDowntime ? "in downtime" : "blocked for the rest of this hour"}.`,
+    message: `${blockedDomain} is ${inDowntime ? "in downtime" : "blocked until the allowance resets"}.`,
   });
 
   dialog.showModal();
