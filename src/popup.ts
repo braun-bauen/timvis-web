@@ -277,6 +277,7 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   downtimeChanged = false;
   el("#editor").hidden = el("#save").hidden = el("#cancel").hidden = false;
 
+  el("#setup-site").hidden = true;
   el("#domain-settings").hidden = false;
   el("#summary").hidden = isNew;
   const cancelAction = el<HTMLCalciteActionElement>("#cancel");
