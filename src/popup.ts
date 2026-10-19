@@ -21,7 +21,7 @@ import "@esri/calcite-components/components/calcite-inline-editable";
 import "@esri/calcite-components/components/calcite-switch";
 
 import "@esri/calcite-components/components/calcite-shell-panel";
-import type { Action, DomainData, DowntimeSchedule, StatusMessage } from "./types";
+import type { Action, DomainData, DowntimeSchedule, PopupStatuses, StatusMessage } from "./types";
 import Options from "./options";
 import { createDowntimeSchedule } from "./downtime";
 import { isThemePreference, setThemePreference, setupTheme, type ThemePreference } from "./theme";
@@ -36,7 +36,7 @@ let domains: DomainData[] = [];
 let editing: DomainData | undefined;
 let isNew = false;
 let schedule: DowntimeSchedule;
-let downtimeChanged = false;
+let savedScheduleValues = "";
 let savedEditorValues = "";
 let siteUrl: string | undefined;
 let siteHostname = "";
@@ -226,26 +226,15 @@ async function refreshStatus(selectCurrent = false): Promise<void> {
       const url = new URL(siteUrl);
       if (["http:", "https:"].includes(url.protocol)) siteHostname = url.hostname;
     }
-    status = await chrome.runtime.sendMessage({
-      type: "getPopupStatus",
+    const values: PopupStatuses = await chrome.runtime.sendMessage({
+      type: "getPopupStatuses",
       url: siteUrl,
     });
-    const values = await Promise.all(
-      domains.map(async (domain) => {
-        const value: StatusMessage | undefined =
-          domain.id === status?.domainConfigId
-            ? status
-            : await chrome.runtime.sendMessage({
-                type: "getPopupStatus",
-                domainConfigId: domain.id,
-              });
-        return { id: domain.id, value };
-      }),
-    );
+    status = values.currentSite;
     domainStatuses.clear();
-    values.forEach(({ id, value }) => {
-      if (value) domainStatuses.set(id, value);
-    });
+    for (const value of values.domains) {
+      if (value.domainConfigId) domainStatuses.set(value.domainConfigId, value);
+    }
     if (selectCurrent && !editing) {
       const current = domains.find((domain) => domain.id === status?.domainConfigId);
       if (current) openEditor(current);
@@ -274,7 +263,7 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   );
   const legacySchedule = createDowntimeSchedule(editing.downtimeRules);
   schedule = structuredClone(editing.downtimeSchedule ?? legacySchedule.schedule);
-  downtimeChanged = false;
+  savedScheduleValues = JSON.stringify(schedule);
   el("#editor").hidden = el("#save").hidden = el("#cancel").hidden = false;
 
   el("#setup-site").hidden = true;
@@ -364,15 +353,12 @@ function renderDowntime(): void {
     checkbox.addEventListener("calciteCheckboxChange", () => {
       day.enabled = checkbox.checked;
       start.disabled = end.disabled = !day.enabled;
-      downtimeChanged = true;
     });
     start.addEventListener("calciteInputTimePickerChange", () => {
       day.startMinutes = parse(start.value);
-      downtimeChanged = true;
     });
     end.addEventListener("calciteInputTimePickerChange", () => {
       day.endMinutes = parse(end.value);
-      downtimeChanged = true;
     });
     el("#downtime-days").append(row);
   }
@@ -385,6 +371,7 @@ async function save(): Promise<void> {
   try {
     const url = isNew ? await validateNewDomain() : editing.url;
     if (!url) return;
+    const downtimeChanged = JSON.stringify(schedule) !== savedScheduleValues;
     const domain: DomainData = {
       ...editing,
       url,
@@ -460,13 +447,11 @@ el("#editor").addEventListener("submit", (event) => {
 el<HTMLCalciteSwitchElement>("#downtime-enabled").addEventListener("calciteSwitchChange", () => {
   schedule.enabled = el<HTMLCalciteSwitchElement>("#downtime-enabled").checked;
   el("#downtime-settings").hidden = !schedule.enabled;
-  downtimeChanged = true;
 });
 el<HTMLCalciteSwitchElement>("#downtime-block-paths").addEventListener(
   "calciteSwitchChange",
   () => {
     schedule.allowWhitelistedPaths = !el<HTMLCalciteSwitchElement>("#downtime-block-paths").checked;
-    downtimeChanged = true;
   },
 );
 el("#delete-domain").addEventListener("click", () => {

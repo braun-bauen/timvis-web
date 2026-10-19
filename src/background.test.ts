@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import Options from "./options";
-import type { DomainData, RuntimeMessage, StatusMessage, StoredState } from "./types";
+import type {
+  DomainData,
+  RuntimeMessage,
+  StatusMessage,
+  StoredState,
+  PopupStatuses,
+} from "./types";
 
 vi.mock("./env", () => ({ env: { debug: false } }));
 const domain = (url: string, limitMs = 20 * 60_000): DomainData => ({
@@ -291,6 +297,35 @@ describe("popup settings and enforcement", () => {
       (await message<StatusMessage>({ type: "getPopupStatus", url: "https://example.com/" }))
         .blocked,
     ).toBe(true);
+  });
+
+  it("batches rule statuses with one configuration read and does not consume warnings", async () => {
+    data["timvis_state:example.com"] = {
+      hourKey,
+      usedMs: 19 * 60_000,
+      warningShown: false,
+      blocked: false,
+    };
+    const before = structuredClone(data);
+    const reads = vi.spyOn(chrome.storage.local, "get");
+    const result = await message<PopupStatuses>({
+      type: "getPopupStatuses",
+      url: "https://example.com/",
+    });
+    expect(result.currentSite).toMatchObject({
+      domainConfigId: "example.com",
+      usedMs: 19 * 60_000,
+      showWarning: false,
+    });
+    expect(result.domains.map((item) => item.domainConfigId)).toEqual([
+      "example.com",
+      "news.example.com",
+    ]);
+    expect(reads.mock.calls.filter(([key]) => key === "timvis_options")).toHaveLength(1);
+    expect(data).toEqual(before);
+    expect(
+      await message<StatusMessage>({ type: "getStatus", url: "https://example.com/" }),
+    ).toMatchObject({ showWarning: true });
   });
 
   it("resets usage on the next hour and never matches unsupported pages", async () => {

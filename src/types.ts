@@ -20,6 +20,11 @@ export type StatusMessage = {
   downtimeActive?: boolean;
 };
 
+export type PopupStatuses = {
+  currentSite: StatusMessage;
+  domains: StatusMessage[];
+};
+
 export type StoredState = {
   hourKey: string;
   resetHours?: number;
@@ -69,7 +74,7 @@ export type ValidatedUrl = {
 };
 
 export type RuntimeMessage = {
-  type: "tick" | "getPopupStatus" | "getStatus" | "debug" | "optionsChanged";
+  type: "tick" | "getPopupStatuses" | "getPopupStatus" | "getStatus" | "debug" | "optionsChanged";
   elapsedMs?: number;
   action?: Action;
   url?: string;

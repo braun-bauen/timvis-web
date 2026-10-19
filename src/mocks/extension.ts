@@ -1,7 +1,7 @@
 import { getUsageWindow } from "../usage-window";
 import Options from "../options";
 import { evaluateDowntime, evaluateDowntimeAccess, getDowntimeRules } from "../downtime";
-import type { RuntimeMessage, ExtensionData } from "../types";
+import type { RuntimeMessage, ExtensionData, DomainData } from "../types";
 
 // LAN previews use HTTP, where randomUUID is unavailable outside localhost.
 if (!crypto.randomUUID) {
@@ -110,38 +110,50 @@ const mockChrome = {
   tabs: { query: async () => [{ id: 1, url: "https://news.example.com/" }] },
   runtime: {
     async sendMessage(message: RuntimeMessage) {
-      if (message.type !== "getPopupStatus") return { ok: true };
+      if (message.type !== "getPopupStatus" && message.type !== "getPopupStatuses")
+        return { ok: true };
       const options = Options();
       const domains = await options.getDomains();
       const domain = message.domainConfigId
         ? domains.find((item) => item.id === message.domainConfigId)
         : options.getBlockedDomainForUrl(domains, message.url ?? "");
-      if (!domain)
+      const getStatus = (domain: DomainData | undefined | null, url: string) => {
+        if (!domain)
+          return {
+            blocked: false,
+            downtime: false,
+            showWarning: false,
+            debug: false,
+            whitelisted: false,
+          };
+        const access = evaluateDowntimeAccess(
+          getDowntimeRules(domain),
+          options.isWhitelistedUrl(domain, url),
+        );
         return {
-          blocked: false,
-          downtime: false,
+          blocked: access.downtimeBlocked,
+          downtime: access.downtimeBlocked,
           showWarning: false,
           debug: false,
-          whitelisted: false,
+          whitelisted: access.accessibleByWhitelist,
+          domainConfigId: domain.id,
+          domain: domain.url,
+          usedMs: 0,
+          allowanceMs: domain.limitMs,
+          remainingMs: domain.limitMs,
+          resetAt: getUsageWindow(domain.resetHours ?? 1).resetAt,
+          downtimeActive: evaluateDowntime(getDowntimeRules(domain)).active,
         };
-      const access = evaluateDowntimeAccess(
-        getDowntimeRules(domain),
-        options.isWhitelistedUrl(domain, message.url ?? ""),
-      );
-      return {
-        blocked: access.downtimeBlocked,
-        downtime: access.downtimeBlocked,
-        showWarning: false,
-        debug: false,
-        whitelisted: access.accessibleByWhitelist,
-        domainConfigId: domain.id,
-        domain: domain.url,
-        usedMs: 0,
-        allowanceMs: domain.limitMs,
-        remainingMs: domain.limitMs,
-        resetAt: getUsageWindow(domain.resetHours ?? 1).resetAt,
-        downtimeActive: evaluateDowntime(getDowntimeRules(domain)).active,
       };
+      const currentSite = getStatus(domain, message.url ?? "");
+      return message.type === "getPopupStatuses"
+        ? {
+            currentSite,
+            domains: domains.map((item) =>
+              item.id === domain?.id ? currentSite : getStatus(item, `https://${item.url}/`),
+            ),
+          }
+        : currentSite;
     },
   },
 };

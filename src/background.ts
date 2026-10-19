@@ -181,6 +181,7 @@ async function handleGetStatus(
   url: string | undefined,
   readOnly = false,
   domainConfigId?: string,
+  loadedDomains?: DomainData[],
 ): Promise<StatusMessage> {
   if (env.debug && !readOnly) {
     return {
@@ -192,10 +193,11 @@ async function handleGetStatus(
     };
   }
 
+  const domains = loadedDomains ?? (await options.getDomains());
   const config =
     readOnly && domainConfigId
-      ? ((await options.getDomains()).find((domain) => domain.id === domainConfigId) ?? null)
-      : await getConfigForUrl(url);
+      ? (domains.find((domain) => domain.id === domainConfigId) ?? null)
+      : options.getBlockedDomainForUrl(domains, url ?? "");
   if (readOnly && domainConfigId && config) url = `https://${config.url}/`;
   if (!config || !url) {
     return {
@@ -289,6 +291,25 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     enqueue(() => handleTick(elapsedMs, senderTabId, url))
       .then(() => sendResponse({ ok: true }))
       .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
+  if (runtimeMessage.type === "getPopupStatuses") {
+    enqueue(async () => {
+      const domains = await options.getDomains();
+      const url = runtimeMessage.url ?? sender?.tab?.url;
+      const currentSite = await handleGetStatus(url, true, undefined, domains);
+      const statuses = await Promise.all(
+        domains.map((domain) =>
+          domain.id === currentSite.domainConfigId
+            ? currentSite
+            : handleGetStatus(undefined, true, domain.id, domains),
+        ),
+      );
+      return { currentSite, domains: statuses };
+    })
+      .then(sendResponse)
+      .catch(() => sendResponse(undefined));
     return true;
   }
 
