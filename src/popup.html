@@ -4,16 +4,178 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Timvis</title>
-    <script defer type="module" src="/src/popup.ts"></script>
+    <script defer type="module" src="/src/popup-entry.ts"></script>
   </head>
   <body>
-    <div id="title">Timvis</div>
-    <div id="status">Checking status...</div>
-    <div id="actions" hidden>
-      <button data-action="warn">Show warning</button>
-      <button data-action="block">Show block</button>
-      <button data-action="unblock">Unblock</button>
-    </div>
-    <div id="hint">Limits reset each hour.</div>
+    <calcite-shell>
+      <calcite-navigation slot="header" label="Timvis" scale="s">
+        <calcite-navigation-logo slot="logo" heading="Timvis"></calcite-navigation-logo>
+        <calcite-action-group
+          slot="content-end"
+          layout="horizontal"
+          label="Color theme"
+          selection-mode="single-persist"
+        >
+          <calcite-action
+            data-theme="light"
+            text="Use light theme"
+            icon="brightness"
+          ></calcite-action>
+          <calcite-action data-theme="dark" text="Use dark theme" icon="moon"></calcite-action>
+          <calcite-action
+            data-theme="system"
+            text="Use system theme"
+            icon="monitor"
+          ></calcite-action>
+        </calcite-action-group>
+        <calcite-action
+          id="add-domain"
+          class="action-brand"
+          slot="content-end"
+          text="Add domain"
+          text-enabled
+          icon="plus"
+        ></calcite-action>
+      </calcite-navigation>
+      <calcite-shell-panel slot="panel-start" width="s">
+        <calcite-panel heading="All sites">
+          <calcite-list
+            id="directory"
+            label="Configured sites"
+            filter-enabled
+            filter-placeholder="Search sites"
+            selection-mode="single-persist"
+            selection-appearance="highlight"
+          ></calcite-list>
+          <p slot="empty-content" class="directory-empty">No sites configured.</p>
+        </calcite-panel>
+      </calcite-shell-panel>
+      <form id="editor">
+        <calcite-panel id="main">
+          <calcite-inline-editable id="new-domain" controls hidden>
+            <calcite-input
+              id="domain-name"
+              label="Domain name"
+              required
+              placeholder="example.com"
+            ></calcite-input>
+          </calcite-inline-editable>
+          <calcite-action
+            id="delete-domain"
+            text="Delete site"
+            icon="trash"
+            slot="header-actions-end"
+          ></calcite-action>
+
+          <section id="summary" aria-live="polite">
+            <calcite-notice open width="full" kind="success">
+              <div id="summary-title" slot="title"></div>
+              <div id="summary-message" slot="message"></div>
+              <calcite-action
+                id="setup-site"
+                hidden
+                text="Set up this site"
+                text-enabled
+                icon="configure"
+                slot="actions-end"
+              ></calcite-action>
+            </calcite-notice>
+            <div id="debug-actions" hidden>
+              <calcite-button data-action="warn" appearance="outline">
+                Show warning
+              </calcite-button>
+              <calcite-button data-action="block" appearance="outline"> Show block </calcite-button>
+              <calcite-button data-action="unblock" appearance="outline"> Unblock </calcite-button>
+            </div>
+          </section>
+          <div id="domain-settings" hidden>
+            <section class="editor-section" aria-labelledby="hourly-limit-heading">
+              <h2 id="hourly-limit-heading">Hourly limit</h2>
+              <div class="row">
+                <calcite-select id="unit" label-text="Unit">
+                  <calcite-option value="minutes">Minutes</calcite-option>
+                  <calcite-option value="seconds">Seconds</calcite-option>
+                </calcite-select>
+                <calcite-input
+                  id="limit"
+                  label-text="Allowance"
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                ></calcite-input>
+              </div>
+            </section>
+            <section class="editor-section" aria-labelledby="downtime-heading">
+              <div class="downtime-header">
+                <h2 id="downtime-heading">Downtime</h2>
+                <calcite-switch id="downtime-enabled" label="Enable downtime"></calcite-switch>
+              </div>
+              <div id="downtime-settings" hidden>
+                <div class="downtime-controls">
+                  <calcite-switch
+                    id="downtime-block-paths"
+                    label-text-end="Block allowed paths"
+                  ></calcite-switch>
+                </div>
+                <div id="downtime-days"></div>
+              </div>
+            </section>
+            <section class="editor-section" aria-labelledby="allowed-paths-heading">
+              <h2 id="allowed-paths-heading">Allowed paths</h2>
+              <calcite-text-area
+                id="paths"
+                label-text="Paths (one per line). These page paths remain accessible during downtime."
+                rows="3"
+                placeholder="/inbox&#10;/settings"
+              ></calcite-text-area>
+            </section>
+          </div>
+          <calcite-button id="cancel" slot="footer-end" appearance="outline">Cancel</calcite-button>
+          <calcite-button id="save" slot="footer-end">Save</calcite-button>
+          <calcite-dialog id="delete-dialog" modal>
+            <p>
+              Its settings and usage will be immediately deleted. Browser-granted site permissions
+              will be retained.
+            </p>
+            <p>An existing parent rule will take over if applicable.</p>
+            <calcite-button id="delete-cancel" slot="footer-end" appearance="outline"
+              >Cancel</calcite-button
+            >
+            <calcite-button id="delete-confirm" slot="footer-end" kind="danger">
+              Delete domain
+            </calcite-button>
+          </calcite-dialog>
+        </calcite-panel>
+      </form>
+    </calcite-shell>
+    <template id="alert-template">
+      <calcite-alert slot="alerts" scale="s" icon>
+        <div slot="title"></div>
+      </calcite-alert>
+    </template>
+    <template id="downtime-day-template">
+      <div class="downtime-day">
+        <calcite-label layout="inline" class="downtime-day-label">
+          <calcite-checkbox data-day-enabled></calcite-checkbox>
+          <span data-day-name></span>
+        </calcite-label>
+        <div class="downtime-day-times">
+          <calcite-input-time-picker
+            data-time="start"
+            scale="s"
+            step="60"
+            required
+          ></calcite-input-time-picker>
+          <calcite-icon icon="arrow-right" scale="s"></calcite-icon>
+          <calcite-input-time-picker
+            data-time="end"
+            scale="s"
+            step="60"
+            required
+          ></calcite-input-time-picker>
+        </div>
+      </div>
+    </template>
   </body>
 </html>

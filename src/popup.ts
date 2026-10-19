@@ -1,71 +1,519 @@
-import "./popup.css";
-import type { Action, RuntimeMessage, StatusMessage } from "./types";
-import { setupTheme } from "./theme";
+import "@esri/calcite-components/components/calcite-shell";
+import "@esri/calcite-components/components/calcite-navigation";
+import "@esri/calcite-components/components/calcite-navigation-logo";
+import "@esri/calcite-components/components/calcite-action-group";
+import "@esri/calcite-components/components/calcite-list";
+import "@esri/calcite-components/components/calcite-list-item";
+import "@esri/calcite-components/components/calcite-panel";
+import "@esri/calcite-components/components/calcite-checkbox";
+import "@esri/calcite-components/components/calcite-label";
+import "@esri/calcite-components/components/calcite-action";
+import "@esri/calcite-components/components/calcite-input";
+import "@esri/calcite-components/components/calcite-icon";
+import "@esri/calcite-components/components/calcite-text-area";
+import "@esri/calcite-components/components/calcite-select";
+import "@esri/calcite-components/components/calcite-option";
+import "@esri/calcite-components/components/calcite-notice";
+import "@esri/calcite-components/components/calcite-alert";
+import "@esri/calcite-components/components/calcite-button";
+import "@esri/calcite-components/components/calcite-dialog";
+import "@esri/calcite-components/components/calcite-input-time-picker";
+import "@esri/calcite-components/components/calcite-inline-editable";
+import "@esri/calcite-components/components/calcite-switch";
 
-function requireElement<T extends HTMLElement>(id: string): T {
-  const element = document.getElementById(id);
-  if (!element) {
-    throw new Error(`Missing #${id} element`);
+import "@esri/calcite-components/components/calcite-shell-panel";
+import type { Action, DomainData, DowntimeSchedule, StatusMessage } from "./types";
+import Options from "./options";
+import { createDowntimeSchedule } from "./downtime";
+import { isThemePreference, setThemePreference, setupTheme, type ThemePreference } from "./theme";
+import "./popup.css";
+
+const options = Options();
+/** Select an element from the DOM */
+const el = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+const input = (selector: string) => el<HTMLCalciteInputElement>(selector);
+let domains: DomainData[] = [];
+let editing: DomainData | undefined;
+let isNew = false;
+let schedule: DowntimeSchedule;
+let downtimeChanged = false;
+let siteUrl: string | undefined;
+let siteHostname = "";
+let status: StatusMessage | undefined;
+let saving = false;
+let refreshing = false;
+const domainStatuses = new Map<string, StatusMessage>();
+
+type AlertOptions = {
+  title: string;
+  message?: string;
+  kind?: HTMLCalciteAlertElement["kind"];
+  mountEl?: HTMLCalciteDialogElement;
+};
+
+function emitAlert({ title, message, kind = "brand", mountEl }: AlertOptions): void {
+  const template = el<HTMLTemplateElement>("#alert-template");
+  const alert = template.content
+    .querySelector("calcite-alert")!
+    .cloneNode(true) as HTMLCalciteAlertElement;
+  alert.kind = kind;
+  alert.autoClose = kind !== "danger";
+  alert.autoCloseDuration = "fast";
+  alert.queue = mountEl || kind === "danger" ? "immediate" : "last";
+  alert.querySelector('[slot="title"]')!.textContent = title;
+  if (message) {
+    const content = document.createElement("div");
+    content.slot = "message";
+    content.textContent = message;
+    alert.append(content);
   }
-  return element as T;
+  if (kind === "danger") {
+    document
+      .querySelectorAll(
+        'calcite-alert[kind="success"], calcite-alert[kind="brand"], calcite-alert[kind="info"]',
+      )
+      .forEach((existing) => existing.remove());
+  }
+  alert.addEventListener("calciteAlertClose", () => {
+    if (!alert.open) alert.remove();
+  });
+  (mountEl ?? el("calcite-shell")).append(alert);
+  alert.open = true;
 }
 
-function setupDebugButtons(): void {
-  document.querySelectorAll("button[data-action]").forEach((button) => {
-    const action = button.getAttribute("data-action") as Action | null;
-    if (!action) {
+function hideDomainHeader(): void {
+  const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
+  header.hidden = true;
+  header.removeAttribute("slot");
+  header.editingEnabled = false;
+  input("#domain-name").disabled = true;
+}
+
+async function validateNewDomain(): Promise<string | undefined> {
+  const draft = editing;
+  const domainInput = input("#domain-name");
+  const value = domainInput.value;
+  const { url, error } = await options.validateUrl(value);
+  if (editing !== draft || !isNew) return;
+  if (error) {
+    emitAlert({
+      title:
+        error === "duplicate"
+          ? "This domain is already limited, please enter a different domain."
+          : value.trim()
+            ? "Please enter a valid domain"
+            : "Please enter a domain",
+      kind: "warning",
+    });
+    el<HTMLCalciteInlineEditableElement>("#new-domain").editingEnabled = true;
+    domainInput.status = "invalid";
+    await domainInput.setFocus();
+    await domainInput.selectText();
+    return;
+  }
+  domainInput.status = "idle";
+  domainInput.value = url;
+  if (editing) editing.url = url;
+  return url;
+}
+
+function updateDirectorySelection(): void {
+  el("#directory")
+    .querySelectorAll<HTMLCalciteListItemElement>("calcite-list-item")
+    .forEach((item) => {
+      item.selected = item.value === editing?.id;
+    });
+}
+
+function createDirectory(): void {
+  el("#directory")
+    .querySelectorAll("calcite-list-item")
+    .forEach((item) => item.remove());
+  for (const domain of domains) {
+    const item = document.createElement("calcite-list-item");
+    item.label = domain.url;
+    item.value = domain.id;
+    item.selected = editing?.id === domain.id;
+    item.addEventListener("calciteListItemSelect", () => {
+      if (item.selected) openEditor(domain);
+    });
+    el("#directory").append(item);
+  }
+  updateDirectorySelection();
+}
+
+function updateThemeActions(preference: ThemePreference): void {
+  document.querySelectorAll<HTMLCalciteActionElement>("[data-theme]").forEach((action) => {
+    action.active = action.dataset.theme === preference;
+  });
+}
+
+async function loadDomains(): Promise<void> {
+  domains = await options.getDomains();
+  createDirectory();
+}
+
+function showSuggestion(): void {
+  el("#domain-settings").hidden = el("#save").hidden = el("#cancel").hidden = true;
+  el("#delete-domain").hidden = true;
+  hideDomainHeader();
+  el<HTMLCalcitePanelElement>("#main").heading = siteHostname || "Timvis";
+  updateDirectorySelection();
+  el("#setup-site").hidden = !siteHostname || !status || Boolean(status.domainConfigId);
+  el("#summary-title").textContent = !siteHostname
+    ? "Tracking unavailable"
+    : !status
+      ? "Status unavailable"
+      : "This site isn't tracked";
+  el("#summary-message").textContent = !siteHostname
+    ? "Timvis tracks HTTP and HTTPS websites. Choose a domain to manage its settings."
+    : !status
+      ? "Unable to read tracking status. You can still manage domains from the directory."
+      : "Track this site by choosing an hourly allowance, allowed paths, and downtime.";
+}
+
+function cancel(): void {
+  if (saving) return;
+  const saved = domains.find((domain) => domain.id === editing?.id);
+  if (saved) {
+    openEditor(saved);
+    return;
+  }
+  editing = undefined;
+  void refreshStatus(true);
+}
+
+function duration(ms: number): string {
+  const seconds = Math.ceil(ms / 1000);
+  return seconds >= 60
+    ? `${Math.floor(seconds / 60)}m ${seconds % 60 !== 0 ? `${seconds % 60}s` : ""}`
+    : `${seconds}s`;
+}
+
+function renderUsage(): void {
+  el("#directory")
+    .querySelectorAll<HTMLCalciteListItemElement>("calcite-list-item")
+    .forEach((item) => {
+      const value = domainStatuses.get(item.value);
+      item.description = value?.domainConfigId
+        ? `${duration(value.usedMs ?? 0)} of ${duration(value.allowanceMs ?? 0)} used`
+        : "";
+    });
+
+  if (!editing || isNew) return;
+
+  const value = domainStatuses.get(editing.id);
+
+  el("#debug-actions").hidden = !value?.debug;
+  if (!value?.domainConfigId) {
+    return;
+  }
+
+  el<HTMLCalciteNoticeElement>("#summary calcite-notice").kind = value.blocked
+    ? "danger"
+    : "success";
+  el("#summary-title").textContent =
+    `${duration(value.usedMs ?? 0)} of ${duration(value.allowanceMs ?? 0)} used`;
+  el("#summary-message").textContent = value.debug
+    ? "Usage tracking and enforcement are disabled in this debug build."
+    : value.downtime
+      ? "Access is blocked by downtime. Allowed paths are unavailable unless the schedule allows them."
+      : value.blocked
+        ? "The hourly allowance has been used. Allowed paths remain accessible."
+        : value.whitelisted
+          ? "This allowed path pauses usage tracking and remains accessible."
+          : "Usage is recorded while the webpage is visible and focused.";
+}
+
+async function refreshStatus(selectCurrent = false): Promise<void> {
+  if (refreshing && !selectCurrent) return;
+  refreshing = true;
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    siteUrl = tab?.url;
+    siteHostname = "";
+    if (siteUrl) {
+      const url = new URL(siteUrl);
+      if (["http:", "https:"].includes(url.protocol)) siteHostname = url.hostname;
+    }
+    status = await chrome.runtime.sendMessage({
+      type: "getPopupStatus",
+      url: siteUrl,
+    });
+    const values = await Promise.all(
+      domains.map(async (domain) => {
+        const value: StatusMessage | undefined =
+          domain.id === status?.domainConfigId
+            ? status
+            : await chrome.runtime.sendMessage({
+                type: "getPopupStatus",
+                domainConfigId: domain.id,
+              });
+        return { id: domain.id, value };
+      }),
+    );
+    domainStatuses.clear();
+    values.forEach(({ id, value }) => {
+      if (value) domainStatuses.set(id, value);
+    });
+    if (selectCurrent && !editing) {
+      const current = domains.find((domain) => domain.id === status?.domainConfigId);
+      if (current) openEditor(current);
+    }
+    if (!editing) showSuggestion();
+    renderUsage();
+  } catch {
+    status = undefined;
+    if (!editing) showSuggestion();
+  } finally {
+    refreshing = false;
+  }
+}
+
+function openEditor(domain?: DomainData, hostname = ""): void {
+  if (saving) return;
+  isNew = !domain;
+  editing = structuredClone(
+    domain ?? {
+      id: crypto.randomUUID(),
+      url: hostname,
+      limitMs: 5 * 60_000,
+      whitelistedPaths: [],
+      downtimeRules: [],
+    },
+  );
+  const legacySchedule = createDowntimeSchedule(editing.downtimeRules);
+  schedule = structuredClone(editing.downtimeSchedule ?? legacySchedule.schedule);
+  downtimeChanged = false;
+  el("#editor").hidden = el("#save").hidden = el("#cancel").hidden = false;
+
+  el("#domain-settings").hidden = false;
+  const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
+  const domainInput = input("#domain-name");
+  domainInput.value = editing.url;
+  domainInput.status = "idle";
+  domainInput.disabled = !isNew;
+  header.hidden = !isNew;
+  if (isNew) {
+    el<HTMLCalcitePanelElement>("#main").heading = "Set up domain";
+    header.slot = "heading";
+    header.editingEnabled = true;
+    void domainInput.setFocus();
+  } else {
+    hideDomainHeader();
+    el<HTMLCalcitePanelElement>("#main").heading = editing.url;
+  }
+
+  const seconds = editing.limitMs / 1000;
+  const minutes = seconds % 60 === 0;
+  input("#limit").value = String(minutes ? seconds / 60 : seconds);
+  el<HTMLCalciteSelectElement>("#unit").value = minutes ? "minutes" : "seconds";
+  el<HTMLCalciteTextAreaElement>("#paths").value = editing.whitelistedPaths.join("\n");
+  el("#delete-domain").hidden = isNew;
+  renderDowntime();
+  if (!editing.downtimeSchedule && legacySchedule.hasConflicts)
+    emitAlert({
+      title: "Downtime needs review",
+      message:
+        "This site's existing schedules have multiple periods per day or different allowed-path settings. They are preserved until you edit downtime. Saving a downtime change replaces them with the single weekly schedule shown here.",
+      kind: "warning",
+    });
+  updateDirectorySelection();
+  renderUsage();
+}
+
+function renderDowntime(): void {
+  el<HTMLCalciteSwitchElement>("#downtime-enabled").checked = schedule.enabled;
+  el("#downtime-settings").hidden = !schedule.enabled;
+  el<HTMLCalciteSwitchElement>("#downtime-block-paths").checked = !schedule.allowWhitelistedPaths;
+  el("#downtime-days").replaceChildren();
+  const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const time = (minutes: number) =>
+    `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const parse = (value: string) => {
+    const [h, m] = value.split(":").map(Number);
+    return h * 60 + m;
+  };
+  for (const weekday of [0, 1, 2, 3, 4, 5, 6]) {
+    const day = schedule.days.find((item) => item.weekday === weekday)!;
+    const row = el<HTMLTemplateElement>(
+      "#downtime-day-template",
+    ).content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const checkbox = row.querySelector<HTMLCalciteCheckboxElement>("calcite-checkbox")!;
+    row.querySelector("[data-day-name]")!.textContent = names[weekday];
+    const start = row.querySelector<HTMLCalciteInputTimePickerElement>("[data-time=start]")!;
+    const end = row.querySelector<HTMLCalciteInputTimePickerElement>("[data-time=end]")!;
+    start.label = `${names[weekday]} From`;
+    end.label = `${names[weekday]} To`;
+    checkbox.checked = day.enabled;
+    start.value = time(day.startMinutes);
+    end.value = time(day.endMinutes);
+    start.disabled = end.disabled = !day.enabled;
+    checkbox.addEventListener("calciteCheckboxChange", () => {
+      day.enabled = checkbox.checked;
+      start.disabled = end.disabled = !day.enabled;
+      downtimeChanged = true;
+    });
+    start.addEventListener("calciteInputTimePickerChange", () => {
+      day.startMinutes = parse(start.value);
+      downtimeChanged = true;
+    });
+    end.addEventListener("calciteInputTimePickerChange", () => {
+      day.endMinutes = parse(end.value);
+      downtimeChanged = true;
+    });
+    el("#downtime-days").append(row);
+  }
+}
+
+async function save(): Promise<void> {
+  if (!editing || saving) return;
+  saving = true;
+  el<HTMLCalciteButtonElement>("#save").loading = true;
+  try {
+    const url = isNew ? await validateNewDomain() : editing.url;
+    if (!url) return;
+    const domain: DomainData = {
+      ...editing,
+      url,
+      limitMs: Math.floor(
+        Number(input("#limit").value) *
+          (el<HTMLCalciteSelectElement>("#unit").value === "seconds" ? 1000 : 60_000),
+      ),
+      whitelistedPaths: el<HTMLCalciteTextAreaElement>("#paths")
+        .value.split(/\n|,/)
+        .map(options.normalizePath)
+        .filter(Boolean),
+      downtimeRules: downtimeChanged ? [] : editing.downtimeRules,
+      ...(downtimeChanged ? { downtimeSchedule: structuredClone(schedule) } : {}),
+    };
+    const result = await (isNew ? options.addDomain(domain) : options.updateDomain(domain));
+    if (result.error) {
+      emitAlert({
+        title: "Unable to save changes",
+        message: result.error,
+        kind: "warning",
+      });
       return;
     }
+    await loadDomains();
+    saving = false;
+    const saved = domains.find((item) => item.id === domain.id);
+    if (saved) openEditor(saved);
+    await refreshStatus();
+    emitAlert({
+      title: "Changes saved",
+      message: "Open tabs have been updated.",
+      kind: "success",
+    });
+  } catch (error) {
+    emitAlert({
+      title: "Unable to save changes",
+      message: error instanceof Error ? error.message : "Unable to save settings.",
+      kind: "danger",
+    });
+  } finally {
+    saving = false;
+    el<HTMLCalciteButtonElement>("#save").loading = false;
+  }
+}
 
-    button.addEventListener("click", () => {
-      triggerDebugAction(action);
+const domainHeader = el<HTMLCalciteInlineEditableElement>("#new-domain");
+domainHeader.messageOverrides = {
+  confirmChanges: "Confirm domain",
+  cancelEditing: "Cancel domain edit",
+};
+domainHeader.afterConfirm = async () => {
+  const url = await validateNewDomain();
+  if (!url) throw new Error("Domain validation failed");
+};
+domainHeader.addEventListener("calciteInlineEditableEditCancel", () => {
+  if (isNew && editing) {
+    input("#domain-name").value = editing.url;
+    input("#domain-name").status = "idle";
+  }
+});
+input("#domain-name").addEventListener("calciteInputInput", () => {
+  input("#domain-name").status = "idle";
+});
+
+el<HTMLCalciteListElement>("#directory").filterProps = ["label"];
+el("#setup-site").addEventListener("click", () => openEditor(undefined, siteHostname));
+el("#add-domain").addEventListener("click", () => openEditor());
+el("#cancel").addEventListener("click", cancel);
+el("#save").addEventListener("click", () => void save());
+el("#editor").addEventListener("submit", (event) => {
+  event.preventDefault();
+  void save();
+});
+el<HTMLCalciteSwitchElement>("#downtime-enabled").addEventListener("calciteSwitchChange", () => {
+  schedule.enabled = el<HTMLCalciteSwitchElement>("#downtime-enabled").checked;
+  el("#downtime-settings").hidden = !schedule.enabled;
+  downtimeChanged = true;
+});
+el<HTMLCalciteSwitchElement>("#downtime-block-paths").addEventListener(
+  "calciteSwitchChange",
+  () => {
+    schedule.allowWhitelistedPaths = !el<HTMLCalciteSwitchElement>("#downtime-block-paths").checked;
+    downtimeChanged = true;
+  },
+);
+el("#delete-domain").addEventListener("click", () => {
+  if (!editing) return;
+  const deleteDialog = el<HTMLCalciteDialogElement>("#delete-dialog");
+  deleteDialog.heading = `Delete ${editing.url}?`;
+  deleteDialog.open = true;
+});
+el("#delete-cancel").addEventListener("click", () => {
+  el<HTMLCalciteDialogElement>("#delete-dialog").open = false;
+});
+el("#delete-confirm").addEventListener("click", async () => {
+  if (!editing || saving) return;
+  saving = true;
+  el<HTMLCalciteButtonElement>("#delete-confirm").loading = true;
+  try {
+    await options.removeDomain(editing);
+    el<HTMLCalciteDialogElement>("#delete-dialog").open = false;
+    await loadDomains();
+    saving = false;
+    editing = undefined;
+    await refreshStatus(true);
+  } catch {
+    emitAlert({
+      title: "Unable to delete domain",
+      kind: "danger",
+      mountEl: el<HTMLCalciteDialogElement>("#delete-dialog"),
+    });
+  } finally {
+    saving = false;
+    el<HTMLCalciteButtonElement>("#delete-confirm").loading = false;
+  }
+});
+document.querySelectorAll<HTMLCalciteActionElement>("[data-theme]").forEach((action) => {
+  action.addEventListener("click", () => {
+    const preference = action.dataset.theme;
+    if (!isThemePreference(preference)) return;
+    updateThemeActions(preference);
+    void setThemePreference(preference);
+  });
+});
+document.querySelectorAll<HTMLElement>("#debug-actions [data-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    void chrome.runtime.sendMessage({
+      type: "debug",
+      action: button.dataset.action as Action,
     });
   });
+});
+void setupTheme(updateThemeActions);
+async function initialize(): Promise<void> {
+  await loadDomains();
+  await refreshStatus(true);
+  window.setInterval(() => {
+    void refreshStatus();
+  }, 1000);
 }
-
-function updateStatus(status: StatusMessage | undefined): void {
-  const statusEl = requireElement<HTMLElement>("status");
-  const actionsEl = requireElement<HTMLElement>("actions");
-
-  if (!status) {
-    statusEl.textContent = "Status unavailable.";
-    actionsEl.hidden = true;
-    return;
-  }
-
-  statusEl.classList.remove("debug", "block");
-  statusEl.textContent = "Active";
-  actionsEl.hidden = !status.debug;
-
-  if (status.debug) {
-    statusEl.textContent = "Debug mode enabled";
-    statusEl.classList.add("debug");
-    return;
-  }
-
-  if (status.blocked) {
-    statusEl.textContent = status.downtime ? "In downtime." : "Blocked for this hour";
-    statusEl.classList.add("block");
-    return;
-  }
-}
-
-function refreshStatus(): void {
-  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    chrome.runtime.sendMessage({ type: "getStatus", url: tab?.url }, (status: StatusMessage) => {
-      updateStatus(status);
-    });
-  });
-}
-
-function triggerDebugAction(action: Action): void {
-  const message: RuntimeMessage = { type: "debug", action };
-
-  chrome.runtime.sendMessage(message, () => {
-    void chrome.runtime.lastError;
-  });
-}
-
-setupDebugButtons();
-refreshStatus();
-void setupTheme();
+void initialize().catch(() => emitAlert({ title: "Unable to load domains", kind: "danger" }));
