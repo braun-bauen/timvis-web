@@ -155,6 +155,7 @@ async function loadDomains(): Promise<void> {
 }
 
 function showSuggestion(): void {
+  el("#summary").hidden = false;
   el("#domain-settings").hidden = el("#save").hidden = el("#cancel").hidden = true;
   el("#delete-domain").hidden = true;
   hideDomainHeader();
@@ -179,11 +180,8 @@ function cancel(): void {
   void refreshStatus(true);
 }
 
-function duration(ms: number): string {
-  const seconds = Math.ceil(ms / 1000);
-  return seconds >= 60
-    ? `${Math.floor(seconds / 60)}m ${seconds % 60 !== 0 ? `${seconds % 60}s` : ""}`
-    : `${seconds}s`;
+function usageText(value: StatusMessage): string {
+  return `${Math.floor((value.usedMs ?? 0) / 60_000)} of ${Math.floor((value.allowanceMs ?? 0) / 60_000)} minutes used`;
 }
 
 function renderUsage(): void {
@@ -191,9 +189,7 @@ function renderUsage(): void {
     .querySelectorAll<HTMLCalciteListItemElement>("calcite-list-item")
     .forEach((item) => {
       const value = domainStatuses.get(item.value);
-      item.description = value?.domainConfigId
-        ? `${duration(value.usedMs ?? 0)} of ${duration(value.allowanceMs ?? 0)} used`
-        : "";
+      item.description = value?.domainConfigId ? usageText(value) : "";
     });
 
   if (!editing || isNew) return;
@@ -213,7 +209,7 @@ function renderUsage(): void {
     : "";
   el("#summary-title").textContent = value.downtime
     ? `Blocked by a schedule${resetText}`
-    : `${Math.floor((value.usedMs ?? 0) / 60_000)} / ${Math.floor((value.allowanceMs ?? 0) / 60_000)} minutes used${resetText}`;
+    : `${usageText(value)}${resetText}`;
 }
 
 async function refreshStatus(selectCurrent = false): Promise<void> {
@@ -282,6 +278,11 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   el("#editor").hidden = el("#save").hidden = el("#cancel").hidden = false;
 
   el("#domain-settings").hidden = false;
+  el("#summary").hidden = isNew;
+  const cancelAction = el<HTMLCalciteActionElement>("#cancel");
+  cancelAction.text = isNew ? "Cancel" : "Cancel changes";
+  cancelAction.icon = isNew ? "x" : "reset";
+  cancelAction.textEnabled = isNew;
   const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
   const domainInput = input("#domain-name");
   domainInput.value = editing.url;
@@ -291,8 +292,8 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   if (isNew) {
     el<HTMLCalcitePanelElement>("#main").heading = "Set up domain";
     header.slot = "heading";
-    header.editingEnabled = true;
-    void domainInput.setFocus();
+    header.editingEnabled = !hostname;
+    if (!hostname) void domainInput.setFocus();
   } else {
     hideDomainHeader();
     el<HTMLCalcitePanelElement>("#main").heading = editing.url;
@@ -329,7 +330,7 @@ function editorValues(): string {
 
 function updateUnsavedIndicator(): void {
   el<HTMLCalciteActionElement>("#cancel").indicator =
-    !!editing && editorValues() !== savedEditorValues;
+    !!editing && !isNew && editorValues() !== savedEditorValues;
 }
 
 function renderDowntime(): void {

@@ -54,10 +54,6 @@ calcite-shell-panel[slot="panel-start"] {
   --calcite-shell-panel-min-width: 205px;
 }
 
-calcite-shell-panel[slot="panel-start"] > calcite-panel {
-  --calcite-panel-footer-background-color: var(--calcite-color-background);
-}
-
 .directory-empty {
   padding: var(--calcite-spacing-md);
 }
@@ -109,8 +105,8 @@ p {
   block-size: 100%;
 }
 
-#summary {
-  margin-block-end: var(--calcite-spacing-md);
+#summary:not([hidden]) {
+  margin-block-end: var(--calcite-spacing-xxl);
   display: flex;
   flex-flow: column nowrap;
   gap: var(--calcite-spacing-md);

@@ -26,11 +26,11 @@
           ></calcite-list>
           <calcite-action
             id="settings-menu-trigger"
-            slot="footer-start"
+            slot="header-actions-start"
             text="Settings"
             icon="gear"
           ></calcite-action>
-          <calcite-dropdown id="settings-menu" placement="top-start">
+          <calcite-dropdown id="settings-menu" placement="bottom-start">
             <calcite-dropdown-group group-title="Color theme" selection-mode="single">
               <calcite-dropdown-item data-theme="light" icon-start="brightness"
                 >Light</calcite-dropdown-item
@@ -60,7 +60,7 @@
             id="delete-domain"
             text="Delete site"
             icon="trash"
-            slot="header-actions-end"
+            slot="header-actions-start"
           ></calcite-action>
 
           <calcite-action
@@ -148,7 +148,7 @@
             <section class="editor-section" aria-labelledby="allowed-paths-heading">
               <h2 id="allowed-paths-heading">Allowed paths</h2>
               <p id="paths-description" class="section-description">
-                Paths (one per line). These page paths remain accessible during downtime.
+                Paths (one per line). These page paths remain accessible during scheduled blocking.
               </p>
               <calcite-text-area
                 id="paths"
