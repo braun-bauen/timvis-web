@@ -17,7 +17,6 @@ import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-button";
 import "@esri/calcite-components/components/calcite-dialog";
 import "@esri/calcite-components/components/calcite-input-time-picker";
-import "@esri/calcite-components/components/calcite-inline-editable";
 import "@esri/calcite-components/components/calcite-switch";
 
 import "@esri/calcite-components/components/calcite-shell-panel";
@@ -35,6 +34,7 @@ const input = (selector: string) => el<HTMLCalciteInputElement>(selector);
 let domains: DomainData[] = [];
 let editing: DomainData | undefined;
 let isNew = false;
+let domainDraft = "";
 let schedule: DowntimeSchedule;
 let savedScheduleValues = "";
 let savedEditorValues = "";
@@ -83,17 +83,17 @@ function emitAlert({ title, message, kind = "brand", mountEl }: AlertOptions): v
 }
 
 function hideDomainHeader(): void {
-  const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
+  const header = input("#domain-name");
   header.hidden = true;
   header.removeAttribute("slot");
-  header.editingEnabled = false;
+  header.inlineEditing = false;
   input("#domain-name").disabled = true;
 }
 
 async function validateNewDomain(): Promise<string | undefined> {
   const draft = editing;
   const domainInput = input("#domain-name");
-  const value = domainInput.value;
+  const value = domainDraft;
   const { url, error } = await options.validateUrl(value);
   if (editing !== draft || !isNew) return;
   if (error) {
@@ -106,13 +106,14 @@ async function validateNewDomain(): Promise<string | undefined> {
             : "Please enter a domain",
       kind: "warning",
     });
-    el<HTMLCalciteInlineEditableElement>("#new-domain").editingEnabled = true;
+    input("#domain-name").inlineEditing = true;
     domainInput.status = "invalid";
     await domainInput.setFocus();
     await domainInput.selectText();
     return;
   }
   domainInput.status = "idle";
+  domainDraft = url;
   domainInput.value = url;
   if (editing) editing.url = url;
   return url;
@@ -273,8 +274,9 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   cancelAction.text = isNew ? "Cancel" : "Cancel changes";
   cancelAction.icon = isNew ? "x" : "reset";
   cancelAction.textEnabled = isNew;
-  const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
+  const header = input("#domain-name");
   const domainInput = input("#domain-name");
+  domainDraft = editing.url;
   domainInput.value = editing.url;
   domainInput.status = "idle";
   domainInput.disabled = !isNew;
@@ -282,7 +284,7 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   if (isNew) {
     el<HTMLCalcitePanelElement>("#main").heading = "Set up domain";
     header.slot = "heading";
-    header.editingEnabled = !hostname;
+    header.inlineEditing = !hostname;
     if (!hostname) void domainInput.setFocus();
   } else {
     hideDomainHeader();
@@ -415,24 +417,30 @@ async function save(): Promise<void> {
   }
 }
 
-const domainHeader = el<HTMLCalciteInlineEditableElement>("#new-domain");
+const domainHeader = input("#domain-name");
 domainHeader.messageOverrides = {
-  confirmChanges: "Confirm domain",
-  cancelEditing: "Cancel domain edit",
+  confirmInlineEditingChanges: "Confirm domain",
+  cancelInlineEditing: "Cancel domain edit",
 };
-domainHeader.afterConfirm = async () => {
+domainHeader.inlineEditingBeforeConfirm = async () => {
   const url = await validateNewDomain();
   if (!url) throw new Error("Domain validation failed");
 };
-domainHeader.addEventListener("calciteInlineEditableEditCancel", () => {
+domainHeader.addEventListener("calciteInputInlineEditingCancel", () => {
   if (isNew && editing) {
+    domainDraft = editing.url;
     input("#domain-name").value = editing.url;
     input("#domain-name").status = "idle";
     updateUnsavedIndicator();
   }
 });
-input("#domain-name").addEventListener("calciteInputInput", () => {
-  input("#domain-name").status = "idle";
+// Inline editing stages text until confirmation, so value still holds the previous
+// commit while the user types. Track the native input for validation and Save.
+domainHeader.addEventListener("input", (event) => {
+  const target = event.composedPath()[0];
+  if (!(target instanceof HTMLInputElement)) return;
+  domainDraft = target.value;
+  domainHeader.status = "idle";
 });
 
 el<HTMLCalciteListElement>("#directory").filterProps = ["label"];

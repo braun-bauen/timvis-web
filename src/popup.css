@@ -16,29 +16,10 @@ body {
 }
 
 :root {
-  --timvis-brand-hue: 235;
-  --timvis-brand-saturation: 18%;
-  --timvis-brand-lightness: 36%;
-  --timvis-brand-lightness-hover: 30%;
-  --timvis-brand-lightness-press: 20%;
-
-  --calcite-color-brand: hsl(
-    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness)
-  );
-  --calcite-color-brand-hover: hsl(
-    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness-hover)
-  );
-  --calcite-color-brand-press: hsl(
-    var(--timvis-brand-hue) var(--timvis-brand-saturation) var(--timvis-brand-lightness-press)
-  );
-}
-
-.calcite-mode-dark {
-  --timvis-brand-hue: 234;
-  --timvis-brand-saturation: 24%;
-  --timvis-brand-lightness: 68%;
-  --timvis-brand-lightness-hover: 76%;
-  --timvis-brand-lightness-press: 82%;
+  color-scheme: light dark;
+  --calcite-color-brand: light-dark(hsl(235 18% 36%), hsl(234 24% 68%));
+  --calcite-color-brand-hover: light-dark(hsl(235 18% 30%), hsl(234 24% 76%));
+  --calcite-color-brand-press: light-dark(hsl(235 18% 20%), hsl(234 24% 82%));
 }
 
 .action-brand {
@@ -47,6 +28,7 @@ body {
   --calcite-action-background-color-press: var(--calcite-color-brand-press);
   --calcite-action-text-color: var(--calcite-color-text-inverse);
   --calcite-action-text-color-press: var(--calcite-color-text-inverse);
+  --calcite-action-loader-color: var(--calcite-color-text-inverse);
 }
 
 calcite-shell-panel[slot="panel-start"] {
