@@ -283,7 +283,8 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   header.hidden = !isNew;
   if (isNew) {
     el<HTMLCalcitePanelElement>("#main").heading = "Set up domain";
-    header.slot = "heading";
+    // The heading slot ignores childless custom elements such as this input.
+    header.slot = "header-content";
     header.inlineEditing = !hostname;
     if (!hostname) void domainInput.setFocus();
   } else {
