@@ -32,6 +32,13 @@ pnpm dev:popup
 with sample domains covering the popup interface. Changes last until the
 page is refreshed.
 
+To check domain editor visibility and focus against the real Calcite components,
+run this in the mock popup's browser console:
+
+```js
+await (await import("/tests/browser/domain-editor.js")).checkDomainEditor();
+```
+
 ### Build
 
 Build the unpacked Chrome extension into `dist/`:

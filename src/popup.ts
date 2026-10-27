@@ -17,7 +17,6 @@ import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-button";
 import "@esri/calcite-components/components/calcite-dialog";
 import "@esri/calcite-components/components/calcite-input-time-picker";
-import "@esri/calcite-components/components/calcite-inline-editable";
 import "@esri/calcite-components/components/calcite-switch";
 
 import "@esri/calcite-components/components/calcite-shell-panel";
@@ -83,17 +82,16 @@ function emitAlert({ title, message, kind = "brand", mountEl }: AlertOptions): v
 }
 
 function hideDomainHeader(): void {
-  const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
+  const header = input("#domain-name");
   header.hidden = true;
   header.removeAttribute("slot");
-  header.editingEnabled = false;
+  header.inlineEditing = false;
   input("#domain-name").disabled = true;
 }
 
-async function validateNewDomain(): Promise<string | undefined> {
+async function validateNewDomain(value = input("#domain-name").value): Promise<string | undefined> {
   const draft = editing;
   const domainInput = input("#domain-name");
-  const value = domainInput.value;
   const { url, error } = await options.validateUrl(value);
   if (editing !== draft || !isNew) return;
   if (error) {
@@ -106,7 +104,8 @@ async function validateNewDomain(): Promise<string | undefined> {
             : "Please enter a domain",
       kind: "warning",
     });
-    el<HTMLCalciteInlineEditableElement>("#new-domain").editingEnabled = true;
+    input("#domain-name").inlineEditing = true;
+    updateSaveAvailability();
     domainInput.status = "invalid";
     await domainInput.setFocus();
     await domainInput.selectText();
@@ -273,7 +272,7 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   cancelAction.text = isNew ? "Cancel" : "Cancel changes";
   cancelAction.icon = isNew ? "x" : "reset";
   cancelAction.textEnabled = isNew;
-  const header = el<HTMLCalciteInlineEditableElement>("#new-domain");
+  const header = input("#domain-name");
   const domainInput = input("#domain-name");
   domainInput.value = editing.url;
   domainInput.status = "idle";
@@ -281,8 +280,9 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   header.hidden = !isNew;
   if (isNew) {
     el<HTMLCalcitePanelElement>("#main").heading = "Set up domain";
-    header.slot = "heading";
-    header.editingEnabled = !hostname;
+    // The heading slot ignores childless custom elements such as this input.
+    header.slot = "header-content";
+    header.inlineEditing = !hostname;
     if (!hostname) void domainInput.setFocus();
   } else {
     hideDomainHeader();
@@ -295,6 +295,7 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   el<HTMLCalciteTextAreaElement>("#paths").value = editing.whitelistedPaths.join("\n");
   el("#delete-domain").hidden = isNew;
   renderDowntime();
+  updateSaveAvailability();
   savedEditorValues = editorValues();
   updateUnsavedIndicator();
   if (!editing.downtimeSchedule && legacySchedule.hasConflicts)
@@ -364,8 +365,12 @@ function renderDowntime(): void {
   }
 }
 
+function updateSaveAvailability(): void {
+  el<HTMLCalciteActionElement>("#save").disabled = isNew && input("#domain-name").inlineEditing;
+}
+
 async function save(): Promise<void> {
-  if (!editing || saving) return;
+  if (!editing || saving || (isNew && input("#domain-name").inlineEditing)) return;
   saving = true;
   el<HTMLCalciteActionElement>("#save").loading = true;
   try {
@@ -415,24 +420,10 @@ async function save(): Promise<void> {
   }
 }
 
-const domainHeader = el<HTMLCalciteInlineEditableElement>("#new-domain");
-domainHeader.messageOverrides = {
-  confirmChanges: "Confirm domain",
-  cancelEditing: "Cancel domain edit",
-};
-domainHeader.afterConfirm = async () => {
-  const url = await validateNewDomain();
-  if (!url) throw new Error("Domain validation failed");
-};
-domainHeader.addEventListener("calciteInlineEditableEditCancel", () => {
-  if (isNew && editing) {
-    input("#domain-name").value = editing.url;
-    input("#domain-name").status = "idle";
-    updateUnsavedIndicator();
-  }
-});
-input("#domain-name").addEventListener("calciteInputInput", () => {
-  input("#domain-name").status = "idle";
+const domainHeader = input("#domain-name");
+domainHeader.addEventListener("calciteInputInlineEditingChange", updateSaveAvailability);
+domainHeader.addEventListener("input", () => {
+  domainHeader.status = "idle";
 });
 
 el<HTMLCalciteListElement>("#directory").filterProps = ["label"];

@@ -48,14 +48,14 @@
       </calcite-shell-panel>
       <form id="editor">
         <calcite-panel id="main">
-          <calcite-inline-editable id="new-domain" controls hidden>
-            <calcite-input
-              id="domain-name"
-              label="Domain name"
-              required
-              placeholder="example.com"
-            ></calcite-input>
-          </calcite-inline-editable>
+          <calcite-input
+            id="domain-name"
+            label="Domain name"
+            inline-edit="controls-disabled"
+            required
+            placeholder="example.com"
+            hidden
+          ></calcite-input>
           <calcite-action
             id="delete-domain"
             text="Delete site"
