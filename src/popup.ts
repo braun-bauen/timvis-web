@@ -34,7 +34,6 @@ const input = (selector: string) => el<HTMLCalciteInputElement>(selector);
 let domains: DomainData[] = [];
 let editing: DomainData | undefined;
 let isNew = false;
-let domainDraft = "";
 let schedule: DowntimeSchedule;
 let savedScheduleValues = "";
 let savedEditorValues = "";
@@ -113,7 +112,6 @@ async function validateNewDomain(value = input("#domain-name").value): Promise<s
     return;
   }
   domainInput.status = "idle";
-  domainDraft = url;
   domainInput.value = url;
   if (editing) editing.url = url;
   return url;
@@ -276,7 +274,6 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   cancelAction.textEnabled = isNew;
   const header = input("#domain-name");
   const domainInput = input("#domain-name");
-  domainDraft = editing.url;
   domainInput.value = editing.url;
   domainInput.status = "idle";
   domainInput.disabled = !isNew;
@@ -424,29 +421,10 @@ async function save(): Promise<void> {
 }
 
 const domainHeader = input("#domain-name");
-domainHeader.messageOverrides = {
-  confirmInlineEditingChanges: "Confirm domain",
-  cancelInlineEditing: "Cancel domain edit",
-};
-domainHeader.inlineEditingBeforeConfirm = async () => {
-  const url = await validateNewDomain(domainDraft);
-  if (!url) throw new Error("Domain validation failed");
-};
-domainHeader.addEventListener("calciteInputInlineEditingCancel", () => {
-  if (isNew && editing) {
-    domainDraft = editing.url;
-    input("#domain-name").value = editing.url;
-    input("#domain-name").status = "idle";
-    updateUnsavedIndicator();
-  }
-});
-// Inline editing stages text until confirmation, so value still holds the previous
-// commit while the user types. Track the native input for before-confirm validation.
 domainHeader.addEventListener("calciteInputInlineEditingChange", updateSaveAvailability);
 domainHeader.addEventListener("input", (event) => {
   const target = event.composedPath()[0];
   if (!(target instanceof HTMLInputElement)) return;
-  domainDraft = target.value;
   domainHeader.status = "idle";
 });
 

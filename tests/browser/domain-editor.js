@@ -62,24 +62,28 @@ export async function checkDomainEditor() {
     throw new Error("Form submission must not save an active inline edit");
   }
 
-  domain.shadowRoot.querySelector(".confirm-changes").click();
-  const confirmDeadline = performance.now() + 3000;
-  while (domain.inlineEditing) {
-    if (performance.now() > confirmDeadline) throw new Error("Domain confirmation did not finish");
-    await waitForRender();
+  if (domain.shadowRoot.querySelector(".confirm-changes, .cancel-editing")) {
+    throw new Error("Inline confirm and cancel controls must not be rendered");
   }
-  if (save.disabled || domain.value !== "pending.example.org") {
-    throw new Error("Successful confirmation must commit the domain and enable Save");
+  await domain.setFocus();
+  field.blur();
+  await waitForRender();
+  if (domain.inlineEditing || save.disabled || domain.value !== "pending.example.org") {
+    throw new Error("Blur must commit the domain and enable Save");
   }
 
-  await waitForRender();
   domain.shadowRoot.querySelector(".enable-editing").click();
   await waitForRender();
   if (!save.disabled) throw new Error("Re-editing must disable Save");
-  domain.shadowRoot.querySelector(".cancel-editing").click();
+  await domain.setFocus();
+  field.value = "changed.example.org";
+  field.dispatchEvent(new InputEvent("input", { bubbles: true, composed: true }));
+  field.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true, composed: true }),
+  );
   await waitForRender();
   if (save.disabled || domain.value !== "pending.example.org") {
-    throw new Error("Cancelling must restore the confirmed domain and enable Save");
+    throw new Error("Escape must restore the last committed domain and enable Save");
   }
-  return "Domain editor visibility, focus, confirmation, cancellation, and submission checks passed";
+  return "Domain editor visibility, focus, blur, Escape, and submission checks passed";
 }
