@@ -90,10 +90,9 @@ function hideDomainHeader(): void {
   input("#domain-name").disabled = true;
 }
 
-async function validateNewDomain(): Promise<string | undefined> {
+async function validateNewDomain(value = input("#domain-name").value): Promise<string | undefined> {
   const draft = editing;
   const domainInput = input("#domain-name");
-  const value = domainDraft;
   const { url, error } = await options.validateUrl(value);
   if (editing !== draft || !isNew) return;
   if (error) {
@@ -107,6 +106,7 @@ async function validateNewDomain(): Promise<string | undefined> {
       kind: "warning",
     });
     input("#domain-name").inlineEditing = true;
+    updateSaveAvailability();
     domainInput.status = "invalid";
     await domainInput.setFocus();
     await domainInput.selectText();
@@ -298,6 +298,7 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   el<HTMLCalciteTextAreaElement>("#paths").value = editing.whitelistedPaths.join("\n");
   el("#delete-domain").hidden = isNew;
   renderDowntime();
+  updateSaveAvailability();
   savedEditorValues = editorValues();
   updateUnsavedIndicator();
   if (!editing.downtimeSchedule && legacySchedule.hasConflicts)
@@ -367,8 +368,12 @@ function renderDowntime(): void {
   }
 }
 
+function updateSaveAvailability(): void {
+  el<HTMLCalciteActionElement>("#save").disabled = isNew && input("#domain-name").inlineEditing;
+}
+
 async function save(): Promise<void> {
-  if (!editing || saving) return;
+  if (!editing || saving || (isNew && input("#domain-name").inlineEditing)) return;
   saving = true;
   el<HTMLCalciteActionElement>("#save").loading = true;
   try {
@@ -424,7 +429,7 @@ domainHeader.messageOverrides = {
   cancelInlineEditing: "Cancel domain edit",
 };
 domainHeader.inlineEditingBeforeConfirm = async () => {
-  const url = await validateNewDomain();
+  const url = await validateNewDomain(domainDraft);
   if (!url) throw new Error("Domain validation failed");
 };
 domainHeader.addEventListener("calciteInputInlineEditingCancel", () => {
@@ -436,7 +441,8 @@ domainHeader.addEventListener("calciteInputInlineEditingCancel", () => {
   }
 });
 // Inline editing stages text until confirmation, so value still holds the previous
-// commit while the user types. Track the native input for validation and Save.
+// commit while the user types. Track the native input for before-confirm validation.
+domainHeader.addEventListener("calciteInputInlineEditingChange", updateSaveAvailability);
 domainHeader.addEventListener("input", (event) => {
   const target = event.composedPath()[0];
   if (!(target instanceof HTMLInputElement)) return;
