@@ -422,9 +422,7 @@ async function save(): Promise<void> {
 
 const domainHeader = input("#domain-name");
 domainHeader.addEventListener("calciteInputInlineEditingChange", updateSaveAvailability);
-domainHeader.addEventListener("input", (event) => {
-  const target = event.composedPath()[0];
-  if (!(target instanceof HTMLInputElement)) return;
+domainHeader.addEventListener("input", () => {
   domainHeader.status = "idle";
 });
 
