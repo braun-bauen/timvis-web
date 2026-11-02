@@ -33,7 +33,9 @@
   }
 
   &[data-type="warn"] {
-    display: flex;
+    &:popover-open {
+      display: flex;
+    }
     flex-flow: row nowrap;
     align-items: center;
     gap: 0.75rem;

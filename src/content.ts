@@ -12,6 +12,7 @@ let inDowntime = false;
 let whitelisted = false;
 let blockedDomain = "this site";
 let domainConfigId: string | undefined;
+let resetAt: number | undefined;
 let lastUrl = window.location.href;
 let lastStatusMinute = "";
 
@@ -39,6 +40,7 @@ function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   document.documentElement.appendChild(dialog);
 
   if (type === "warn") {
+    dialog.popover = "auto";
     dialog.setAttribute("role", "status");
     const closeButton = document.createElement("button");
     closeButton.innerHTML = CLOSE_ICON;
@@ -54,7 +56,11 @@ function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
 }
 
 function dismissDialog(dialog: HTMLDialogElement): void {
-  dialog.close();
+  if (dialog.popover) {
+    dialog.hidePopover();
+  } else {
+    dialog.close();
+  }
   dialog.remove();
 }
 
@@ -78,7 +84,7 @@ function setWarningOpen(open: boolean): void {
     type: "warn",
     message: `Hey there! One minute left 👀`,
   });
-  dialog.show();
+  dialog.showPopover();
   warningShown = true;
 }
 
@@ -173,12 +179,13 @@ function refreshStatus(): void {
         removeBlock();
         return;
       }
-      if (domainConfigId !== status.domainConfigId) {
+      if (domainConfigId !== status.domainConfigId || resetAt !== status.resetAt) {
         warningShown = false;
         setWarningOpen(false);
         removeBlock();
       }
       domainConfigId = status.domainConfigId;
+      resetAt = status.resetAt;
       blockedDomain = status.domain ?? "this site";
       whitelisted = status.whitelisted;
       if (status.showWarning) {

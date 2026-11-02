@@ -99,6 +99,19 @@ describe("popup settings and enforcement", () => {
     vi.useRealTimers();
   });
 
+  it("warns once at one minute remaining and warns again in the next usage window", async () => {
+    await message({ type: "tick", elapsedMs: 19 * 60_000 - 1000 });
+    expect(tabMessage).not.toHaveBeenCalled();
+    await message({ type: "tick", elapsedMs: 1000 });
+    expect(tabMessage).toHaveBeenCalledExactlyOnceWith(1, "warn", expect.any(Function));
+    await message({ type: "tick", elapsedMs: 1000 });
+    expect(tabMessage).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(new Date(2026, 9, 5, 13));
+    await message({ type: "tick", elapsedMs: 19 * 60_000 });
+    expect(tabMessage).toHaveBeenCalledTimes(2);
+    expect(tabMessage).toHaveBeenLastCalledWith(1, "warn", expect.any(Function));
+  });
+
   it("gives exact subdomains independent usage and shares parent usage elsewhere", async () => {
     await message({ type: "tick", url: "https://news.example.com/", elapsedMs: 1000 });
     expect(state("news.example.com").usedMs).toBe(1000);
