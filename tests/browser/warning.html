@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timvis dialog preview</title>
+    <link rel="stylesheet" href="/content.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 128px 24px 24px;
+        background: #f5f5f5;
+        color: #151515;
+        font:
+          16px / 1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 640px;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      input {
+        display: block;
+        margin: 8px 0 16px;
+        padding: 8px;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Timvis dialog preview</h1>
+      <p>
+        Preview the actual extension dialogs with mock status data. The warning lets you keep
+        interacting with this page. The block is modal; press Escape to return to these controls.
+      </p>
+      <label for="domain">Site name</label>
+      <input id="domain" value="example.com" />
+      <button data-dialog="warn" type="button">Show warning</button>
+      <button data-dialog="block" type="button">Show block</button>
+      <button data-dialog="downtime" type="button">Show downtime block</button>
+      <button data-dialog="none" type="button">Hide dialog</button>
+    </main>
+    <script type="module">
+      const listeners = [];
+      let mode = "warn";
+      const notify = (message) => {
+        for (const listener of listeners) listener(message);
+      };
+      function showDialog(nextMode) {
+        mode = nextMode;
+        notify("unblock");
+        notify("refresh");
+      }
+      window.chrome = {
+        runtime: {
+          onMessage: { addListener: (listener) => listeners.push(listener) },
+          sendMessage(message, callback) {
+            if (message.type === "getStatus") {
+              callback?.({
+                domain: document.querySelector("#domain").value || "example.com",
+                domainConfigId: "preview",
+                showWarning: mode === "warn",
+                blocked: mode === "block" || mode === "downtime",
+                downtime: mode === "downtime",
+                whitelisted: false,
+                debug: false,
+              });
+            } else {
+              callback?.();
+            }
+          },
+        },
+      };
+      await import("/src/content.ts");
+      document.querySelectorAll("[data-dialog]").forEach((button) => {
+        button.addEventListener("click", () => showDialog(button.dataset.dialog));
+      });
+      // Preview-only escape hatch: real block dialogs deliberately cannot be dismissed.
+      window.addEventListener(
+        "keydown",
+        (event) => {
+          if (event.key === "Escape" && (mode === "block" || mode === "downtime")) {
+            event.preventDefault();
+            showDialog("none");
+          }
+        },
+        true,
+      );
+    </script>
+  </body>
+</html>

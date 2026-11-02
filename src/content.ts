@@ -1,6 +1,7 @@
 import type { Action, DialogOptions, StatusMessage } from "./types";
 
 const TICK_INTERVAL_MS = 1000;
+const CLOSE_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M3.97998 11.3032L7.28098 8.00023L3.97998 4.69723L4.68698 3.99023L7.98998 7.29323L7.99998 7.28323L8.00998 7.29323L11.314 3.99023L12.021 4.69723L8.71798 8.00023L12.021 11.3032L11.314 12.0102L8.00998 8.70723L7.99998 8.71723L7.98998 8.70723L4.68598 12.0102L3.97998 11.3032Z" fill-rule="evenodd" clip-rule="evenodd" fill="currentcolor"/></svg> `;
 
 let lastTick = Date.now();
 let ticking = false;
@@ -11,6 +12,7 @@ let inDowntime = false;
 let whitelisted = false;
 let blockedDomain = "this site";
 let domainConfigId: string | undefined;
+let resetAt: number | undefined;
 let lastUrl = window.location.href;
 let lastStatusMinute = "";
 
@@ -24,32 +26,27 @@ function getMinuteKey(date = new Date()): string {
   ].join(":");
 }
 
-function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
-  const dialog = document.createElement("dialog");
+function createDialog({ type, message }: DialogOptions): HTMLDivElement | HTMLDialogElement {
+  const dialog = document.createElement(type === "warn" ? "div" : "dialog");
   dialog.id = "tt-dialog";
   dialog.setAttribute("data-type", type);
 
   const title = document.createElement("p");
+  title.id = "tt-dialog-title";
   title.textContent = message;
+  dialog.setAttribute("aria-labelledby", title.id);
   dialog.appendChild(title);
 
   document.documentElement.appendChild(dialog);
 
   if (type === "warn") {
-    dialog.addEventListener("click", (event) => {
-      if (event.target !== dialog) {
-        return;
-      }
-      const rect = dialog.getBoundingClientRect();
-      const clickedOutside =
-        event.clientX < rect.left ||
-        event.clientX > rect.right ||
-        event.clientY < rect.top ||
-        event.clientY > rect.bottom;
-      if (clickedOutside) {
-        dismissDialog(dialog);
-      }
-    });
+    dialog.popover = "manual";
+    dialog.setAttribute("role", "status");
+    const closeButton = document.createElement("button");
+    closeButton.innerHTML = CLOSE_ICON;
+    closeButton.setAttribute("aria-label", "Dismiss Timvis warning");
+    closeButton.addEventListener("click", () => dismissDialog(dialog));
+    dialog.appendChild(closeButton);
   } else {
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
@@ -58,8 +55,12 @@ function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   return dialog;
 }
 
-function dismissDialog(dialog: HTMLDialogElement): void {
-  dialog.close();
+function dismissDialog(dialog: HTMLDivElement | HTMLDialogElement): void {
+  if (dialog.popover) {
+    dialog.hidePopover();
+  } else if ("close" in dialog) {
+    dialog.close();
+  }
   dialog.remove();
 }
 
@@ -81,9 +82,9 @@ function setWarningOpen(open: boolean): void {
 
   const dialog = createDialog({
     type: "warn",
-    message: `One minute left until ${blockedDomain} is blocked.`,
+    message: `Hey there! One minute left 👀`,
   });
-  dialog.showModal();
+  dialog.showPopover();
   warningShown = true;
 }
 
@@ -99,10 +100,10 @@ function showBlock(): void {
 
   const dialog = createDialog({
     type: "block",
-    message: `${blockedDomain} is ${inDowntime ? "in downtime" : "blocked until the allowance resets"}.`,
+    message: `${blockedDomain} is blocked ${inDowntime ? "by a schedule" : "until the limit resets"}`,
   });
 
-  dialog.showModal();
+  (dialog as HTMLDialogElement).showModal();
   blocked = true;
 }
 
@@ -178,12 +179,13 @@ function refreshStatus(): void {
         removeBlock();
         return;
       }
-      if (domainConfigId !== status.domainConfigId) {
+      if (domainConfigId !== status.domainConfigId || resetAt !== status.resetAt) {
         warningShown = false;
         setWarningOpen(false);
         removeBlock();
       }
       domainConfigId = status.domainConfigId;
+      resetAt = status.resetAt;
       blockedDomain = status.domain ?? "this site";
       whitelisted = status.whitelisted;
       if (status.showWarning) {
