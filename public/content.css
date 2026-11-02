@@ -1,20 +1,82 @@
+:root {
+  --tt-color-brand: light-dark(hsl(235 18% 36%), hsl(234 24% 68%));
+  --tt-color-warning: light-dark(#da7c0b, #f89927);
+  --tt-color-surface-1: light-dark(#f7f7f7, #212121);
+  --tt-color-surface-2: light-dark(#ffffff, #2b2b2b);
+  --tt-color-surface-4: light-dark(#ebebeb, #404040);
+  --tt-color-text-1: light-dark(#141414, #ffffff);
+  --tt-color-text-2: light-dark(#4a4a4a, #bfbfbf);
+  --tt-color-text-3: light-dark(#6b6b6b, #9e9e9e);
+  --tt-color-transparent: light-dark(rgba(0, 0, 0, 0), rgba(255, 255, 255, 0));
+  --tt-color-transparent-hover: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.12));
+}
+
 #tt-dialog {
-  --tt-background: #363636;
+  color-scheme: light dark;
   text-align: center;
-  color: #ffffff;
-  background-color: var(--tt-background);
-  border-color: var(--tt-background);
-  border-radius: 1rem;
-  padding: 2.5rem;
+  color: var(--tt-color-text-3);
+  background-color: var(--tt-color-surface-1);
+  border: 0;
   margin: auto;
+  padding: 0;
   font-size: 1.25rem;
-  font-family: system-ui, sans-serif;
+  font-family: sans-serif, system-ui;
 
   &[data-type="block"] {
-    --tt-background: #000000;
+    p {
+      margin: 0;
+    }
 
     &::backdrop {
-      background-color: #000000;
+      background-color: var(--tt-color-surface-1);
+    }
+  }
+
+  &[data-type="warn"] {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1rem;
+    inset: 1rem auto auto 1rem;
+    padding-block: 0.75rem;
+    padding-inline: 1rem 0.375rem;
+    border-top: 3px solid var(--tt-color-warning);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+    background-color: var(--tt-color-surface-2);
+    color: var(--tt-color-text-2);
+    text-align: left;
+    transition-property: opacity, display;
+    transition-duration: 0.5s;
+    opacity: 1;
+
+    @starting-style {
+      opacity: 0;
+    }
+
+    p {
+      margin: 0;
+      padding: 0;
+      font-weight: 500;
+    }
+
+    button {
+      display: grid;
+      border-style: none;
+      border-radius: 2px;
+      color: var(--tt-color-text-3);
+      padding: 0.5rem;
+      cursor: pointer;
+      transition-property: background-color, color;
+      transition-duration: 0.15s;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      background-color: var(--tt-color-transparent);
+
+      &:hover {
+        background-color: var(--tt-color-transparent-hover);
+        color: var(--tt-color-text-1);
+      }
     }
   }
 }
