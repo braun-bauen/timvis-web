@@ -26,8 +26,8 @@ function getMinuteKey(date = new Date()): string {
   ].join(":");
 }
 
-function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
-  const dialog = document.createElement("dialog");
+function createDialog({ type, message }: DialogOptions): HTMLDivElement | HTMLDialogElement {
+  const dialog = document.createElement(type === "warn" ? "div" : "dialog");
   dialog.id = "tt-dialog";
   dialog.setAttribute("data-type", type);
 
@@ -55,10 +55,10 @@ function createDialog({ type, message }: DialogOptions): HTMLDialogElement {
   return dialog;
 }
 
-function dismissDialog(dialog: HTMLDialogElement): void {
+function dismissDialog(dialog: HTMLDivElement | HTMLDialogElement): void {
   if (dialog.popover) {
     dialog.hidePopover();
-  } else {
+  } else if ("close" in dialog) {
     dialog.close();
   }
   dialog.remove();
@@ -103,7 +103,7 @@ function showBlock(): void {
     message: `${blockedDomain} is blocked ${inDowntime ? "by a schedule" : "until the limit resets"}`,
   });
 
-  dialog.showModal();
+  (dialog as HTMLDialogElement).showModal();
   blocked = true;
 }
 

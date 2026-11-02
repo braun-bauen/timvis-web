@@ -53,6 +53,7 @@ describe("content usage tracking", () => {
     const dialogs: Array<
       EventTarget & {
         id: string;
+        tagName: string;
         children: typeof dialogs;
         type: string;
         popover: string;
@@ -61,9 +62,10 @@ describe("content usage tracking", () => {
         remove: () => void;
       }
     > = [];
-    function createElement() {
+    function createElement(tagName: string) {
       const element = Object.assign(new EventTarget(), {
         id: "",
+        tagName: tagName.toUpperCase(),
         type: "",
         popover: "",
         children: [] as typeof dialogs,
@@ -109,6 +111,7 @@ describe("content usage tracking", () => {
     const receive = vi.mocked(chrome.runtime.onMessage.addListener).mock.calls.at(-1)![0];
     receive("warn", {}, () => {});
     expect(dialogs).toHaveLength(1);
+    expect(dialogs[0].tagName).toBe("DIV");
     expect(dialogs[0].popover).toBe("auto");
     expect(dialogs[0].showPopover).toHaveBeenCalled();
     const warning = dialogs[0];
