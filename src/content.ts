@@ -40,7 +40,7 @@ function createDialog({ type, message }: DialogOptions): HTMLDivElement | HTMLDi
   document.documentElement.appendChild(dialog);
 
   if (type === "warn") {
-    dialog.popover = "auto";
+    dialog.popover = "manual";
     dialog.setAttribute("role", "status");
     const closeButton = document.createElement("button");
     closeButton.innerHTML = CLOSE_ICON;

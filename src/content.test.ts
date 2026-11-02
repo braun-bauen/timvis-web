@@ -49,7 +49,7 @@ describe("content usage tracking", () => {
       .map((message) => message.elapsedMs);
   }
 
-  it("shows an auto popover warning once per usage window", async () => {
+  it("shows an manual popover warning once per usage window", async () => {
     const dialogs: Array<
       EventTarget & {
         id: string;
@@ -112,7 +112,7 @@ describe("content usage tracking", () => {
     receive("warn", {}, () => {});
     expect(dialogs).toHaveLength(1);
     expect(dialogs[0].tagName).toBe("DIV");
-    expect(dialogs[0].popover).toBe("auto");
+    expect(dialogs[0].popover).toBe("manual");
     expect(dialogs[0].showPopover).toHaveBeenCalled();
     const warning = dialogs[0];
     dialogs[0].children[1].dispatchEvent(new Event("click"));
