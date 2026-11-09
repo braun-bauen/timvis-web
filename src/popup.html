@@ -160,21 +160,26 @@
               ></calcite-text-area>
             </section>
           </div>
-          <calcite-dialog id="delete-dialog" modal>
-            <p>
-              Its settings and usage will be immediately deleted. Browser-granted site permissions
-              will be retained.
-            </p>
-            <p>An existing parent rule will take over if applicable.</p>
-            <calcite-button id="delete-cancel" slot="footer-end" appearance="outline"
-              >Cancel</calcite-button
-            >
-            <calcite-button id="delete-confirm" slot="footer-end" kind="danger">
-              Delete domain
-            </calcite-button>
-          </calcite-dialog>
         </calcite-panel>
       </form>
+      <calcite-popover
+        id="delete-popover"
+        reference-element="delete-domain"
+        placement="bottom-start"
+        overlay-positioning="fixed"
+        auto-close
+      >
+        <div class="delete-confirmation">
+          <p>
+            Settings and usage will be immediately deleted. Browser-granted permissions will be
+            retained.
+          </p>
+          <div class="delete-confirmation-actions">
+            <calcite-button id="delete-cancel" appearance="outline">Cancel</calcite-button>
+            <calcite-button id="delete-confirm" kind="danger">Delete domain</calcite-button>
+          </div>
+        </div>
+      </calcite-popover>
     </calcite-shell>
     <template id="alert-template">
       <calcite-alert slot="alerts" scale="s" icon>
