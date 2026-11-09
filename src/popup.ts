@@ -15,7 +15,7 @@ import "@esri/calcite-components/components/calcite-text-area";
 import "@esri/calcite-components/components/calcite-notice";
 import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-button";
-import "@esri/calcite-components/components/calcite-dialog";
+import "@esri/calcite-components/components/calcite-popover";
 import "@esri/calcite-components/components/calcite-input-time-picker";
 import "@esri/calcite-components/components/calcite-switch";
 
@@ -48,10 +48,9 @@ type AlertOptions = {
   title: string;
   message?: string;
   kind?: HTMLCalciteAlertElement["kind"];
-  mountEl?: HTMLCalciteDialogElement;
 };
 
-function emitAlert({ title, message, kind = "brand", mountEl }: AlertOptions): void {
+function emitAlert({ title, message, kind = "brand" }: AlertOptions): void {
   const template = el<HTMLTemplateElement>("#alert-template");
   const alert = template.content
     .querySelector("calcite-alert")!
@@ -59,7 +58,7 @@ function emitAlert({ title, message, kind = "brand", mountEl }: AlertOptions): v
   alert.kind = kind;
   alert.autoClose = kind !== "danger";
   alert.autoCloseDuration = "fast";
-  alert.queue = mountEl || kind === "danger" ? "immediate" : "last";
+  alert.queue = kind === "danger" ? "immediate" : "last";
   alert.querySelector('[slot="title"]')!.textContent = title;
   if (message) {
     const content = document.createElement("div");
@@ -77,7 +76,7 @@ function emitAlert({ title, message, kind = "brand", mountEl }: AlertOptions): v
   alert.addEventListener("calciteAlertClose", () => {
     if (!alert.open) alert.remove();
   });
-  (mountEl ?? el("calcite-shell")).append(alert);
+  el("calcite-shell").append(alert);
   alert.open = true;
 }
 
@@ -250,6 +249,7 @@ async function refreshStatus(selectCurrent = false): Promise<void> {
 
 function openEditor(domain?: DomainData, hostname = ""): void {
   if (saving) return;
+  el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
   isNew = !domain;
   editing = structuredClone(
     domain ?? {
@@ -446,13 +446,13 @@ el<HTMLCalciteSwitchElement>("#downtime-block-paths").addEventListener(
   },
 );
 el("#delete-domain").addEventListener("click", () => {
-  if (!editing) return;
-  const deleteDialog = el<HTMLCalciteDialogElement>("#delete-dialog");
-  deleteDialog.heading = `Delete ${editing.url}?`;
-  deleteDialog.open = true;
+  if (!editing || isNew || saving) return;
+  const deletePopover = el<HTMLCalcitePopoverElement>("#delete-popover");
+  deletePopover.heading = `Delete ${editing.url}?`;
+  // Calcite toggles the popover from its reference element after this click handler.
 });
 el("#delete-cancel").addEventListener("click", () => {
-  el<HTMLCalciteDialogElement>("#delete-dialog").open = false;
+  el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
 });
 el("#delete-confirm").addEventListener("click", async () => {
   if (!editing || saving) return;
@@ -460,7 +460,7 @@ el("#delete-confirm").addEventListener("click", async () => {
   el<HTMLCalciteButtonElement>("#delete-confirm").loading = true;
   try {
     await options.removeDomain(editing);
-    el<HTMLCalciteDialogElement>("#delete-dialog").open = false;
+    el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
     await loadDomains();
     saving = false;
     editing = undefined;
@@ -469,7 +469,6 @@ el("#delete-confirm").addEventListener("click", async () => {
     emitAlert({
       title: "Unable to delete domain",
       kind: "danger",
-      mountEl: el<HTMLCalciteDialogElement>("#delete-dialog"),
     });
   } finally {
     saving = false;
