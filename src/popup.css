@@ -99,10 +99,20 @@ p {
   gap: var(--calcite-spacing-sm);
 }
 
-.downtime-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: var(--calcite-spacing-md);
+}
+
+#add-path {
+  margin-inline-start: auto;
+}
+
+.paths-empty {
+  margin: 0;
+  padding: var(--calcite-spacing-sm) 0;
+  color: var(--calcite-color-text-3);
 }
 
 #downtime-enabled {
@@ -163,7 +173,13 @@ p {
   margin-block: 0;
 }
 
-.delete-confirmation-actions {
+.path-editor {
+  inline-size: 300px;
+  max-inline-size: calc(100vw - 2rem);
+  padding: var(--calcite-spacing-md) var(--calcite-spacing-lg);
+}
+
+.popover-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--calcite-spacing-md);

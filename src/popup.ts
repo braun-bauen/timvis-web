@@ -11,7 +11,7 @@ import "@esri/calcite-components/components/calcite-label";
 import "@esri/calcite-components/components/calcite-action";
 import "@esri/calcite-components/components/calcite-input";
 import "@esri/calcite-components/components/calcite-icon";
-import "@esri/calcite-components/components/calcite-text-area";
+import "@esri/calcite-components/components/calcite-input-text";
 import "@esri/calcite-components/components/calcite-notice";
 import "@esri/calcite-components/components/calcite-alert";
 import "@esri/calcite-components/components/calcite-button";
@@ -37,6 +37,8 @@ let isNew = false;
 let schedule: DowntimeSchedule;
 let savedScheduleValues = "";
 let savedEditorValues = "";
+let paths: string[] = [];
+let editingPathIndex: number | undefined;
 let siteUrl: string | undefined;
 let siteHostname = "";
 let status: StatusMessage | undefined;
@@ -169,6 +171,7 @@ function showSuggestion(): void {
 
 function cancel(): void {
   if (saving) return;
+  closePathEditor();
   const saved = domains.find((domain) => domain.id === editing?.id);
   if (saved) {
     openEditor(saved);
@@ -250,6 +253,7 @@ async function refreshStatus(selectCurrent = false): Promise<void> {
 function openEditor(domain?: DomainData, hostname = ""): void {
   if (saving) return;
   el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
+  closePathEditor();
   isNew = !domain;
   editing = structuredClone(
     domain ?? {
@@ -292,7 +296,8 @@ function openEditor(domain?: DomainData, hostname = ""): void {
   numberInput("#limit").value = String(editing.limitMs / 60_000);
   numberInput("#reset-hours").value = String(editing.resetHours ?? 1);
   updateAllowanceLabels();
-  el<HTMLCalciteTextAreaElement>("#paths").value = editing.whitelistedPaths.join("\n");
+  paths = [...editing.whitelistedPaths];
+  renderPaths();
   el("#delete-domain").hidden = isNew;
   renderDowntime();
   updateSaveAvailability();
@@ -314,7 +319,7 @@ function editorValues(): string {
     domain: input("#domain-name").value,
     minutes: numberInput("#limit").value,
     hours: numberInput("#reset-hours").value,
-    paths: el<HTMLCalciteTextAreaElement>("#paths").value,
+    paths,
     schedule,
   });
 }
@@ -322,6 +327,81 @@ function editorValues(): string {
 function updateUnsavedIndicator(): void {
   el<HTMLCalciteActionElement>("#cancel").indicator =
     !!editing && !isNew && editorValues() !== savedEditorValues;
+}
+
+function renderPaths(): void {
+  const list = el("#paths");
+  list.querySelectorAll("calcite-list-item").forEach((item) => item.remove());
+  paths.forEach((path, index) => {
+    const item = document.createElement("calcite-list-item");
+    item.label = path;
+    item.value = path;
+    const edit = document.createElement("calcite-action");
+    edit.slot = "actions-end";
+    edit.icon = "pencil";
+    edit.text = `Edit ${path}`;
+    edit.scale = "s";
+    edit.addEventListener("click", (event) => {
+      event.preventDefault();
+      openPathEditor(edit, index);
+    });
+    const remove = document.createElement("calcite-action");
+    remove.slot = "actions-end";
+    remove.icon = "trash";
+    remove.text = `Remove ${path}`;
+    remove.scale = "s";
+    remove.addEventListener("click", () => {
+      closePathEditor();
+      paths.splice(index, 1);
+      renderPaths();
+      updateUnsavedIndicator();
+    });
+    item.append(edit, remove);
+    list.append(item);
+  });
+}
+
+function openPathEditor(anchor: HTMLElement, index?: number): void {
+  if (!editing || saving) return;
+  el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
+  editingPathIndex = index;
+  const popover = el<HTMLCalcitePopoverElement>("#path-popover");
+  const pathInput = el<HTMLCalciteInputTextElement>("#path-input");
+  popover.heading = index === undefined ? "Add path" : "Edit path";
+  pathInput.value = index === undefined ? "" : paths[index];
+  pathInput.status = "idle";
+  pathInput.validationMessage = "";
+  // Calcite toggles popovers from window clicks; the trigger prevents that and opens it here.
+  popover.referenceElement = anchor;
+  popover.open = true;
+}
+
+function closePathEditor(): void {
+  el<HTMLCalcitePopoverElement>("#path-popover").open = false;
+  editingPathIndex = undefined;
+}
+
+function commitPath(): void {
+  const pathInput = el<HTMLCalciteInputTextElement>("#path-input");
+  const path = options.normalizePath(pathInput.value);
+  if (!path) {
+    pathInput.status = "invalid";
+    pathInput.validationMessage = "Please enter a path";
+    void pathInput.setFocus();
+    return;
+  }
+  if (paths.some((existing, index) => existing === path && index !== editingPathIndex)) {
+    pathInput.value = path;
+    pathInput.status = "invalid";
+    pathInput.validationMessage = "Path already exists";
+    void pathInput.setFocus();
+    return;
+  }
+  if (editingPathIndex === undefined) paths.push(path);
+  else paths[editingPathIndex] = path;
+  closePathEditor();
+  renderPaths();
+  updateUnsavedIndicator();
 }
 
 function renderDowntime(): void {
@@ -382,10 +462,7 @@ async function save(): Promise<void> {
       url,
       limitMs: Math.floor(Number(numberInput("#limit").value) * 60_000),
       resetHours: Number(numberInput("#reset-hours").value),
-      whitelistedPaths: el<HTMLCalciteTextAreaElement>("#paths")
-        .value.split(/\n|,/)
-        .map(options.normalizePath)
-        .filter(Boolean),
+      whitelistedPaths: [...paths],
       downtimeRules: downtimeChanged ? [] : editing.downtimeRules,
       ...(downtimeChanged ? { downtimeSchedule: structuredClone(schedule) } : {}),
     };
@@ -451,6 +528,24 @@ el("#delete-domain").addEventListener("click", () => {
   deletePopover.heading = `Delete ${editing.url}?`;
   // Calcite toggles the popover from its reference element after this click handler.
 });
+el("#add-path").addEventListener("click", (event) => {
+  event.preventDefault();
+  openPathEditor(el("#add-path"));
+});
+el("#path-popover").addEventListener("calcitePopoverOpen", () => {
+  void el<HTMLCalciteInputTextElement>("#path-input").setFocus();
+});
+el("#path-input").addEventListener("calciteInputTextInput", () => {
+  const pathInput = el<HTMLCalciteInputTextElement>("#path-input");
+  pathInput.status = "idle";
+  pathInput.validationMessage = "";
+});
+el("#path-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  commitPath();
+});
+el("#path-confirm").addEventListener("click", commitPath);
+el("#path-cancel").addEventListener("click", closePathEditor);
 el("#delete-cancel").addEventListener("click", () => {
   el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
 });
@@ -515,7 +610,6 @@ for (const selector of ["#limit", "#reset-hours"]) {
 for (const eventName of [
   "calciteInputInput",
   "calciteInputNumberInput",
-  "calciteTextAreaInput",
   "calciteSwitchChange",
   "calciteCheckboxChange",
   "calciteInputTimePickerChange",

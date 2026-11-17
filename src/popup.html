@@ -125,7 +125,7 @@
               </div>
             </section>
             <section class="editor-section" aria-labelledby="downtime-heading">
-              <div class="downtime-header">
+              <div class="section-header">
                 <h2 id="downtime-heading">Scheduled blocking</h2>
                 <calcite-switch
                   id="downtime-enabled"
@@ -146,18 +146,29 @@
               </div>
             </section>
             <section class="editor-section" aria-labelledby="allowed-paths-heading">
-              <h2 id="allowed-paths-heading">Allowed paths</h2>
+              <div class="section-header">
+                <h2 id="allowed-paths-heading">Allowed paths</h2>
+                <calcite-action
+                  id="add-path"
+                  text="Add path"
+                  icon="plus"
+                  scale="s"
+                ></calcite-action>
+              </div>
               <p id="paths-description" class="section-description">
-                Paths (one per line). These page paths remain accessible during scheduled blocking.
+                These page paths remain accessible during scheduled blocking.
               </p>
-              <calcite-text-area
+              <calcite-list
                 id="paths"
                 class="editor-top-space"
                 label="Allowed paths"
                 aria-describedby="paths-description"
-                rows="3"
-                placeholder="/inbox&#10;/settings"
-              ></calcite-text-area>
+                selection-mode="none"
+                interaction-mode="static"
+                scale="s"
+              >
+                <p slot="empty-content" class="paths-empty">No allowed paths.</p>
+              </calcite-list>
             </section>
           </div>
         </calcite-panel>
@@ -174,11 +185,31 @@
             Settings and usage will be immediately deleted. Browser-granted permissions will be
             retained.
           </p>
-          <div class="delete-confirmation-actions">
+          <div class="popover-actions">
             <calcite-button id="delete-cancel" appearance="outline">Cancel</calcite-button>
             <calcite-button id="delete-confirm" kind="danger">Delete domain</calcite-button>
           </div>
         </div>
+      </calcite-popover>
+      <calcite-popover
+        id="path-popover"
+        heading="Add path"
+        placement="bottom-end"
+        overlay-positioning="fixed"
+        auto-close
+      >
+        <form id="path-form" class="path-editor" novalidate>
+          <calcite-input-text
+            id="path-input"
+            label="Path"
+            placeholder="/inbox"
+            scale="s"
+          ></calcite-input-text>
+          <div class="popover-actions">
+            <calcite-button id="path-cancel" appearance="outline" scale="s">Cancel</calcite-button>
+            <calcite-button id="path-confirm" scale="s">Save path</calcite-button>
+          </div>
+        </form>
       </calcite-popover>
     </calcite-shell>
     <template id="alert-template">
