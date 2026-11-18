@@ -31,6 +31,11 @@ body {
   --calcite-action-loader-color: var(--calcite-color-text-inverse);
 }
 
+.action-danger {
+  --calcite-action-text-color: var(--calcite-color-status-danger);
+  --calcite-action-text-color-press: var(--calcite-color-status-danger-press);
+}
+
 calcite-shell-panel[slot="panel-start"] {
   --calcite-shell-panel-width: 205px;
   --calcite-shell-panel-min-width: 205px;
@@ -99,10 +104,23 @@ p {
   gap: var(--calcite-spacing-sm);
 }
 
-.downtime-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: var(--calcite-spacing-md);
+}
+
+#paths {
+  --calcite-list-background-color: var(--calcite-color-surface-3);
+}
+
+#add-path {
+  display: block;
+  margin-block-start: var(--calcite-spacing-xs);
+}
+
+#paths[hidden] + #add-path {
+  margin-block-start: var(--calcite-spacing-xl);
 }
 
 #downtime-enabled {
@@ -163,7 +181,13 @@ p {
   margin-block: 0;
 }
 
-.delete-confirmation-actions {
+.path-editor {
+  inline-size: 300px;
+  max-inline-size: calc(100vw - 2rem);
+  padding: var(--calcite-spacing-md) var(--calcite-spacing-lg);
+}
+
+.popover-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--calcite-spacing-md);

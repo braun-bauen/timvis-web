@@ -125,7 +125,7 @@
               </div>
             </section>
             <section class="editor-section" aria-labelledby="downtime-heading">
-              <div class="downtime-header">
+              <div class="section-header">
                 <h2 id="downtime-heading">Downtime</h2>
                 <calcite-switch id="downtime-enabled" label="Enable downtime"></calcite-switch>
               </div>
@@ -147,14 +147,21 @@
               <p id="paths-description" class="section-description">
                 These pages are not tracked and remain accessible, unless blocked during Downtime.
               </p>
-              <calcite-text-area
+              <calcite-list
                 id="paths"
                 class="editor-top-space"
                 label="Allowed pages"
                 aria-describedby="paths-description"
-                rows="3"
-                placeholder="/inbox&#10;/settings"
-              ></calcite-text-area>
+                selection-mode="none"
+                interaction-mode="static"
+              ></calcite-list>
+              <calcite-action
+                id="add-path"
+                text="Add page"
+                text-enabled
+                icon="plus"
+                alignment="start"
+              ></calcite-action>
             </section>
           </div>
         </calcite-panel>
@@ -171,17 +178,48 @@
             Settings and usage will be immediately deleted. Browser-granted permissions will be
             retained.
           </p>
-          <div class="delete-confirmation-actions">
+          <div class="popover-actions">
             <calcite-button id="delete-cancel" appearance="outline">Cancel</calcite-button>
             <calcite-button id="delete-confirm" kind="danger">Delete domain</calcite-button>
           </div>
         </div>
+      </calcite-popover>
+      <calcite-popover
+        id="path-popover"
+        heading="Add page"
+        placement="bottom-start"
+        trigger-disabled
+        overlay-positioning="fixed"
+        auto-close
+      >
+        <form id="path-form" class="path-editor" novalidate>
+          <calcite-input-text
+            id="path-input"
+            label="Page"
+            placeholder="/inbox"
+          ></calcite-input-text>
+          <div class="popover-actions">
+            <calcite-button id="path-cancel" appearance="outline">Cancel</calcite-button>
+            <calcite-button id="path-confirm">Save</calcite-button>
+          </div>
+        </form>
       </calcite-popover>
     </calcite-shell>
     <template id="alert-template">
       <calcite-alert slot="alerts" scale="s" icon>
         <div slot="title"></div>
       </calcite-alert>
+    </template>
+    <template id="path-item-template">
+      <calcite-list-item>
+        <calcite-action data-path-action="edit" slot="actions-end" icon="pencil"></calcite-action>
+        <calcite-action
+          data-path-action="remove"
+          slot="actions-end"
+          icon="trash"
+          class="action-danger"
+        ></calcite-action>
+      </calcite-list-item>
     </template>
     <template id="downtime-day-template">
       <div class="downtime-day">
