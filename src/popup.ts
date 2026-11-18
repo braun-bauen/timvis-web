@@ -39,6 +39,7 @@ let savedScheduleValues = "";
 let savedEditorValues = "";
 let paths: string[] = [];
 let editingPathIndex: number | undefined;
+let pathTrigger: HTMLCalciteActionElement | undefined;
 let siteUrl: string | undefined;
 let siteHostname = "";
 let status: StatusMessage | undefined;
@@ -332,36 +333,39 @@ function updateUnsavedIndicator(): void {
 function renderPaths(): void {
   const list = el("#paths");
   list.querySelectorAll("calcite-list-item").forEach((item) => item.remove());
+  list.hidden = !paths.length;
   paths.forEach((path, index) => {
-    const item = document.createElement("calcite-list-item");
+    const item = el<HTMLTemplateElement>(
+      "#path-item-template",
+    ).content.firstElementChild!.cloneNode(true) as HTMLCalciteListItemElement;
     item.label = path;
     item.value = path;
-    const edit = document.createElement("calcite-action");
-    edit.slot = "actions-end";
-    edit.icon = "pencil";
+    const edit = item.querySelector<HTMLCalciteActionElement>('[data-path-action="edit"]')!;
+    const remove = item.querySelector<HTMLCalciteActionElement>('[data-path-action="remove"]')!;
     edit.text = `Edit ${path}`;
-    edit.scale = "s";
-    edit.addEventListener("click", (event) => {
-      event.preventDefault();
-      openPathEditor(edit, index);
-    });
-    const remove = document.createElement("calcite-action");
-    remove.slot = "actions-end";
-    remove.icon = "trash";
     remove.text = `Remove ${path}`;
-    remove.scale = "s";
+    setPathTriggerExpanded(edit, false);
+    edit.addEventListener("click", () => openPathEditor(edit, index));
     remove.addEventListener("click", () => {
       closePathEditor();
       paths.splice(index, 1);
       renderPaths();
       updateUnsavedIndicator();
     });
-    item.append(edit, remove);
     list.append(item);
   });
 }
 
-function openPathEditor(anchor: HTMLElement, index?: number): void {
+/** Mirrors the ARIA state Calcite would set on a popover trigger without `trigger-disabled`. */
+function setPathTriggerExpanded(trigger: HTMLCalciteActionElement, expanded: boolean): void {
+  trigger.aria = {
+    ...trigger.aria,
+    controlsElements: [el("#path-popover")],
+    expanded,
+  };
+}
+
+function openPathEditor(trigger: HTMLCalciteActionElement, index?: number): void {
   if (!editing || saving) return;
   el<HTMLCalcitePopoverElement>("#delete-popover").open = false;
   editingPathIndex = index;
@@ -371,8 +375,13 @@ function openPathEditor(anchor: HTMLElement, index?: number): void {
   pathInput.value = index === undefined ? "" : paths[index];
   pathInput.status = "idle";
   pathInput.validationMessage = "";
-  // Calcite toggles popovers from window clicks; the trigger prevents that and opens it here.
-  popover.referenceElement = anchor;
+  if (pathTrigger && pathTrigger !== trigger) setPathTriggerExpanded(pathTrigger, false);
+  pathTrigger = trigger;
+  setPathTriggerExpanded(trigger, true);
+  // One popover serves every trigger, so it is opened here; `trigger-disabled` stops
+  // Calcite from also toggling it when the anchor is clicked.
+  popover.placement = index === undefined ? "bottom-start" : "bottom-end";
+  popover.referenceElement = trigger;
   popover.open = true;
 }
 
@@ -393,7 +402,7 @@ function commitPath(): void {
   if (paths.some((existing, index) => existing === path && index !== editingPathIndex)) {
     pathInput.value = path;
     pathInput.status = "invalid";
-    pathInput.validationMessage = "Path already exists";
+    pathInput.validationMessage = "This path already exists";
     void pathInput.setFocus();
     return;
   }
@@ -528,9 +537,12 @@ el("#delete-domain").addEventListener("click", () => {
   deletePopover.heading = `Delete ${editing.url}?`;
   // Calcite toggles the popover from its reference element after this click handler.
 });
-el("#add-path").addEventListener("click", (event) => {
-  event.preventDefault();
-  openPathEditor(el("#add-path"));
+const addPath = el<HTMLCalciteActionElement>("#add-path");
+setPathTriggerExpanded(addPath, false);
+addPath.addEventListener("click", () => openPathEditor(addPath));
+el("#path-popover").addEventListener("calcitePopoverClose", (event) => {
+  const popover = event.currentTarget as HTMLCalcitePopoverElement;
+  if (!popover.open && pathTrigger) setPathTriggerExpanded(pathTrigger, false);
 });
 el("#path-popover").addEventListener("calcitePopoverOpen", () => {
   void el<HTMLCalciteInputTextElement>("#path-input").setFocus();

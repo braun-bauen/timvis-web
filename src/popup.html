@@ -146,17 +146,9 @@
               </div>
             </section>
             <section class="editor-section" aria-labelledby="allowed-paths-heading">
-              <div class="section-header">
-                <h2 id="allowed-paths-heading">Allowed paths</h2>
-                <calcite-action
-                  id="add-path"
-                  text="Add path"
-                  icon="plus"
-                  scale="s"
-                ></calcite-action>
-              </div>
+              <h2 id="allowed-paths-heading">Allowed paths</h2>
               <p id="paths-description" class="section-description">
-                These page paths remain accessible during scheduled blocking.
+                Paths (one per line). These page paths remain accessible during scheduled blocking.
               </p>
               <calcite-list
                 id="paths"
@@ -165,10 +157,16 @@
                 aria-describedby="paths-description"
                 selection-mode="none"
                 interaction-mode="static"
-                scale="s"
-              >
-                <p slot="empty-content" class="paths-empty">No allowed paths.</p>
-              </calcite-list>
+                scale="m"
+              ></calcite-list>
+              <calcite-action
+                id="add-path"
+                text="Add path"
+                text-enabled
+                icon="plus"
+                alignment="start"
+                scale="m"
+              ></calcite-action>
             </section>
           </div>
         </calcite-panel>
@@ -194,7 +192,9 @@
       <calcite-popover
         id="path-popover"
         heading="Add path"
-        placement="bottom-end"
+        placement="bottom-start"
+        trigger-disabled
+        scale="m"
         overlay-positioning="fixed"
         auto-close
       >
@@ -203,11 +203,11 @@
             id="path-input"
             label="Path"
             placeholder="/inbox"
-            scale="s"
+            scale="m"
           ></calcite-input-text>
           <div class="popover-actions">
-            <calcite-button id="path-cancel" appearance="outline" scale="s">Cancel</calcite-button>
-            <calcite-button id="path-confirm" scale="s">Save path</calcite-button>
+            <calcite-button id="path-cancel" appearance="outline" scale="m">Cancel</calcite-button>
+            <calcite-button id="path-confirm" scale="m">Save</calcite-button>
           </div>
         </form>
       </calcite-popover>
@@ -216,6 +216,23 @@
       <calcite-alert slot="alerts" scale="s" icon>
         <div slot="title"></div>
       </calcite-alert>
+    </template>
+    <template id="path-item-template">
+      <calcite-list-item>
+        <calcite-action
+          data-path-action="edit"
+          slot="actions-end"
+          icon="pencil"
+          scale="s"
+        ></calcite-action>
+        <calcite-action
+          data-path-action="remove"
+          slot="actions-end"
+          icon="trash"
+          scale="s"
+          class="action-danger"
+        ></calcite-action>
+      </calcite-list-item>
     </template>
     <template id="downtime-day-template">
       <div class="downtime-day">

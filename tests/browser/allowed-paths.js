@@ -11,6 +11,35 @@ export async function checkAllowedPaths(page) {
       { timeout: 3000 },
     );
   };
+  // Triggers must expose the popover's state on their inner button, as Calcite does.
+  const assertExpanded = async (trigger, expected) => {
+    await trigger.evaluate(
+      (action, expanded) =>
+        new Promise((resolve, reject) => {
+          const deadline = performance.now() + 3000;
+          const check = () => {
+            const button = action.shadowRoot.querySelector("button");
+            const popover = document.querySelector("#path-popover");
+            if (
+              button?.getAttribute("aria-expanded") === String(expanded) &&
+              button.ariaControlsElements?.includes(popover)
+            ) {
+              resolve();
+            } else if (performance.now() > deadline) {
+              reject(
+                new Error(
+                  `Expected aria-expanded=${expanded} with aria-controls on ${action.text}, got ${button?.getAttribute("aria-expanded")}`,
+                ),
+              );
+            } else {
+              requestAnimationFrame(check);
+            }
+          };
+          check();
+        }),
+      expected,
+    );
+  };
   const assertLabels = async (expected, message) => {
     const actual = await labels();
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -46,8 +75,11 @@ export async function checkAllowedPaths(page) {
   if (await unsaved()) throw new Error("A freshly opened site must not show unsaved changes");
 
   // Add with Enter, auto-prefixing the leading slash.
-  await page.locator("#add-path").click();
+  const addPath = page.locator("#add-path");
+  await assertExpanded(addPath, false);
+  await addPath.click();
   await assertOpen(true);
+  await assertExpanded(addPath, true);
   if ((await popover.evaluate((element) => element.heading)) !== "Add path") {
     throw new Error("Add path must title the popover 'Add path'");
   }
@@ -59,6 +91,7 @@ export async function checkAllowedPaths(page) {
   await field.fill("inbox");
   await field.press("Enter");
   await assertOpen(false);
+  await assertExpanded(addPath, false);
   await assertLabels([...initial, "/inbox"], "Enter must add a normalized path");
   if (!(await unsaved())) throw new Error("Adding a path must mark unsaved changes");
 
@@ -68,14 +101,18 @@ export async function checkAllowedPaths(page) {
   await field.fill(initial[0].slice(1));
   await page.locator("#path-confirm").click();
   await assertOpen(true);
-  await assertInvalid("Path already exists");
+  await assertInvalid("This path already exists");
   await page.keyboard.press("Escape");
   await assertOpen(false);
   await assertLabels([...initial, "/inbox"], "A duplicate must not be added");
 
   // Edit an existing path.
-  await (await rowAction("/inbox", "edit")).click();
+  const editInbox = await rowAction("/inbox", "edit");
+  await assertExpanded(editInbox, false);
+  await editInbox.click();
   await assertOpen(true);
+  await assertExpanded(editInbox, true);
+  await assertExpanded(addPath, false);
   if ((await popover.evaluate((element) => element.heading)) !== "Edit path") {
     throw new Error("Editing must title the popover 'Edit path'");
   }
@@ -95,7 +132,7 @@ export async function checkAllowedPaths(page) {
   await assertOpen(true);
   await field.fill(initial[0]);
   await field.press("Enter");
-  await assertInvalid("Path already exists");
+  await assertInvalid("This path already exists");
   await field.fill("/mail");
   await field.press("Enter");
   await assertOpen(false);

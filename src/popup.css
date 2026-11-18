@@ -31,6 +31,11 @@ body {
   --calcite-action-loader-color: var(--calcite-color-text-inverse);
 }
 
+.action-danger {
+  --calcite-action-text-color: var(--calcite-color-status-danger);
+  --calcite-action-text-color-press: var(--calcite-color-status-danger-press);
+}
+
 calcite-shell-panel[slot="panel-start"] {
   --calcite-shell-panel-width: 205px;
   --calcite-shell-panel-min-width: 205px;
@@ -105,14 +110,17 @@ p {
   gap: var(--calcite-spacing-md);
 }
 
-#add-path {
-  margin-inline-start: auto;
+#paths {
+  --calcite-list-background-color: var(--calcite-color-surface-3);
 }
 
-.paths-empty {
-  margin: 0;
-  padding: var(--calcite-spacing-sm) 0;
-  color: var(--calcite-color-text-3);
+#add-path {
+  display: block;
+  margin-block-start: var(--calcite-spacing-xs);
+}
+
+#paths[hidden] + #add-path {
+  margin-block-start: var(--calcite-spacing-xl);
 }
 
 #downtime-enabled {
