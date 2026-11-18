@@ -154,7 +154,6 @@
                 aria-describedby="paths-description"
                 selection-mode="none"
                 interaction-mode="static"
-                scale="m"
               ></calcite-list>
               <calcite-action
                 id="add-path"
@@ -162,7 +161,6 @@
                 text-enabled
                 icon="plus"
                 alignment="start"
-                scale="m"
               ></calcite-action>
             </section>
           </div>
@@ -191,7 +189,6 @@
         heading="Add page"
         placement="bottom-start"
         trigger-disabled
-        scale="m"
         overlay-positioning="fixed"
         auto-close
       >
@@ -200,11 +197,10 @@
             id="path-input"
             label="Page"
             placeholder="/inbox"
-            scale="m"
           ></calcite-input-text>
           <div class="popover-actions">
-            <calcite-button id="path-cancel" appearance="outline" scale="m">Cancel</calcite-button>
-            <calcite-button id="path-confirm" scale="m">Save</calcite-button>
+            <calcite-button id="path-cancel" appearance="outline">Cancel</calcite-button>
+            <calcite-button id="path-confirm">Save</calcite-button>
           </div>
         </form>
       </calcite-popover>
@@ -216,17 +212,11 @@
     </template>
     <template id="path-item-template">
       <calcite-list-item>
-        <calcite-action
-          data-path-action="edit"
-          slot="actions-end"
-          icon="pencil"
-          scale="m"
-        ></calcite-action>
+        <calcite-action data-path-action="edit" slot="actions-end" icon="pencil"></calcite-action>
         <calcite-action
           data-path-action="remove"
           slot="actions-end"
           icon="trash"
-          scale="m"
           class="action-danger"
         ></calcite-action>
       </calcite-list-item>
