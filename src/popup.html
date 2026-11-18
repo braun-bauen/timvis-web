@@ -126,11 +126,8 @@
             </section>
             <section class="editor-section" aria-labelledby="downtime-heading">
               <div class="downtime-header">
-                <h2 id="downtime-heading">Scheduled blocking</h2>
-                <calcite-switch
-                  id="downtime-enabled"
-                  label="Enable scheduled blocking"
-                ></calcite-switch>
+                <h2 id="downtime-heading">Downtime</h2>
+                <calcite-switch id="downtime-enabled" label="Enable downtime"></calcite-switch>
               </div>
               <p class="section-description">
                 Set scheduled times where site usage is blocked completely.
@@ -139,21 +136,21 @@
                 <div class="downtime-controls editor-top-space">
                   <calcite-switch
                     id="downtime-block-paths"
-                    label-text-end="Block allowed paths"
+                    label-text-end="Block allowed pages"
                   ></calcite-switch>
                 </div>
                 <div id="downtime-days" class="editor-top-space"></div>
               </div>
             </section>
             <section class="editor-section" aria-labelledby="allowed-paths-heading">
-              <h2 id="allowed-paths-heading">Allowed paths</h2>
+              <h2 id="allowed-paths-heading">Allowed pages</h2>
               <p id="paths-description" class="section-description">
-                Paths (one per line). These page paths remain accessible during scheduled blocking.
+                These pages are not tracked and remain accessible, unless blocked during Downtime.
               </p>
               <calcite-text-area
                 id="paths"
                 class="editor-top-space"
-                label="Allowed paths"
+                label="Allowed pages"
                 aria-describedby="paths-description"
                 rows="3"
                 placeholder="/inbox&#10;/settings"
