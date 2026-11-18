@@ -371,7 +371,7 @@ function openPathEditor(trigger: HTMLCalciteActionElement, index?: number): void
   editingPathIndex = index;
   const popover = el<HTMLCalcitePopoverElement>("#path-popover");
   const pathInput = el<HTMLCalciteInputTextElement>("#path-input");
-  popover.heading = index === undefined ? "Add path" : "Edit path";
+  popover.heading = index === undefined ? "Add page" : "Edit page";
   pathInput.value = index === undefined ? "" : paths[index];
   pathInput.status = "idle";
   pathInput.validationMessage = "";
@@ -395,14 +395,14 @@ function commitPath(): void {
   const path = options.normalizePath(pathInput.value);
   if (!path) {
     pathInput.status = "invalid";
-    pathInput.validationMessage = "Please enter a path";
+    pathInput.validationMessage = "Please enter a page";
     void pathInput.setFocus();
     return;
   }
   if (paths.some((existing, index) => existing === path && index !== editingPathIndex)) {
     pathInput.value = path;
     pathInput.status = "invalid";
-    pathInput.validationMessage = "This path already exists";
+    pathInput.validationMessage = "This page already exists";
     void pathInput.setFocus();
     return;
   }

@@ -80,8 +80,8 @@ export async function checkAllowedPaths(page) {
   await addPath.click();
   await assertOpen(true);
   await assertExpanded(addPath, true);
-  if ((await popover.evaluate((element) => element.heading)) !== "Add path") {
-    throw new Error("Add path must title the popover 'Add path'");
+  if ((await popover.evaluate((element) => element.heading)) !== "Add page") {
+    throw new Error("Add page must title the popover 'Add page'");
   }
   await page.waitForFunction(
     () => document.activeElement === document.querySelector("#path-input"),
@@ -101,7 +101,7 @@ export async function checkAllowedPaths(page) {
   await field.fill(initial[0].slice(1));
   await page.locator("#path-confirm").click();
   await assertOpen(true);
-  await assertInvalid("This path already exists");
+  await assertInvalid("This page already exists");
   await page.keyboard.press("Escape");
   await assertOpen(false);
   await assertLabels([...initial, "/inbox"], "A duplicate must not be added");
@@ -113,8 +113,8 @@ export async function checkAllowedPaths(page) {
   await assertOpen(true);
   await assertExpanded(editInbox, true);
   await assertExpanded(addPath, false);
-  if ((await popover.evaluate((element) => element.heading)) !== "Edit path") {
-    throw new Error("Editing must title the popover 'Edit path'");
+  if ((await popover.evaluate((element) => element.heading)) !== "Edit page") {
+    throw new Error("Editing must title the popover 'Edit page'");
   }
   if ((await page.$eval("#path-input", (input) => input.value)) !== "/inbox") {
     throw new Error("Editing must prefill the current path");
@@ -132,7 +132,7 @@ export async function checkAllowedPaths(page) {
   await assertOpen(true);
   await field.fill(initial[0]);
   await field.press("Enter");
-  await assertInvalid("This path already exists");
+  await assertInvalid("This page already exists");
   await field.fill("/mail");
   await field.press("Enter");
   await assertOpen(false);
