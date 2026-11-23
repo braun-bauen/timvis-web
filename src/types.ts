@@ -17,7 +17,13 @@ export type StatusMessage = {
   allowanceMs?: number;
   remainingMs?: number;
   resetAt?: number;
+  /** Length of the usage window the allowance applies to. */
+  windowMs?: number;
   downtimeActive?: boolean;
+  /** When the blocking downtime ends; only set while downtime blocks the page. */
+  downtimeEndsAt?: number;
+  /** Today's downtime as minute ranges; only set while downtime blocks the page. */
+  downtimeSegments?: { startMinutes: number; endMinutes: number }[];
 };
 
 export type PopupStatuses = {

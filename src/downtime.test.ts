@@ -6,6 +6,8 @@ import {
   createDowntimeSchedule,
   getDowntimeRules,
   isValidDowntimeSchedule,
+  getDowntimeSegments,
+  getDowntimeEndsAt,
 } from "./downtime";
 import type { DomainData, DowntimeRule } from "./types";
 
@@ -163,5 +165,48 @@ describe("weekly downtime schedule", () => {
     expect(isValidDowntimeSchedule(schedule)).toBe(false);
     schedule.days.pop();
     expect(isValidDowntimeSchedule(schedule)).toBe(false);
+  });
+});
+
+describe("getDowntimeSegments", () => {
+  it("returns today's downtime including the tail of an overnight rule", () => {
+    const overnight = rule({ weekdays: [0, 1], startMinutes: 22 * 60, endMinutes: 7 * 60 });
+    expect(getDowntimeSegments([overnight], local(1, 1, 30))).toEqual([
+      { startMinutes: 0, endMinutes: 7 * 60 },
+      { startMinutes: 22 * 60, endMinutes: 24 * 60 },
+    ]);
+  });
+
+  it("merges overlapping rules and returns nothing on free days", () => {
+    const rules = [
+      rule({ startMinutes: 9 * 60, endMinutes: 12 * 60 }),
+      rule({ startMinutes: 11 * 60, endMinutes: 13 * 60 }),
+    ];
+    expect(getDowntimeSegments(rules, local(1, 10))).toEqual([
+      { startMinutes: 9 * 60, endMinutes: 13 * 60 },
+    ]);
+    expect(getDowntimeSegments(rules, local(2, 10))).toEqual([]);
+  });
+});
+
+describe("getDowntimeEndsAt", () => {
+  it("returns when an overnight downtime ends", () => {
+    const overnight = rule({ weekdays: [0], startMinutes: 22 * 60, endMinutes: 7 * 60 });
+    expect(getDowntimeEndsAt([overnight], local(0, 23, 15))).toBe(local(1, 7).getTime());
+    expect(getDowntimeEndsAt([overnight], local(1, 1, 30))).toBe(local(1, 7).getTime());
+  });
+
+  it("follows back-to-back rules and ignores inactive downtime", () => {
+    const rules = [
+      rule({ weekdays: [1], allDay: true }),
+      rule({ weekdays: [2], startMinutes: 0, endMinutes: 6 * 60 }),
+    ];
+    expect(getDowntimeEndsAt(rules, local(1, 12))).toBe(local(2, 6).getTime());
+    expect(getDowntimeEndsAt(rules, local(3, 12))).toBeUndefined();
+  });
+
+  it("returns undefined when downtime never ends", () => {
+    const always = rule({ weekdays: [0, 1, 2, 3, 4, 5, 6], allDay: true });
+    expect(getDowntimeEndsAt([always], local(1, 12))).toBeUndefined();
   });
 });
