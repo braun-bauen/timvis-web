@@ -135,3 +135,40 @@ export function isValidDowntimeSchedule(schedule: DowntimeSchedule): boolean {
     )
   );
 }
+
+const MINUTE_MS = 60_000;
+const DAY_MINUTES = 24 * 60;
+
+function atMinute(date: Date, minutes: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, minutes);
+}
+
+/** Today's downtime as merged [start, end) minute ranges on a 24-hour dial. */
+export function getDowntimeSegments(
+  rules: DowntimeRule[],
+  date = new Date(),
+): { startMinutes: number; endMinutes: number }[] {
+  const segments: { startMinutes: number; endMinutes: number }[] = [];
+  for (let minute = 0; minute < DAY_MINUTES; minute++) {
+    if (!evaluateDowntime(rules, atMinute(date, minute)).active) continue;
+    const last = segments.at(-1);
+    if (last && last.endMinutes === minute) {
+      last.endMinutes = minute + 1;
+    } else {
+      segments.push({ startMinutes: minute, endMinutes: minute + 1 });
+    }
+  }
+  return segments;
+}
+
+/** When the downtime active at `date` ends, or undefined if it never ends within a week. */
+export function getDowntimeEndsAt(rules: DowntimeRule[], date = new Date()): number | undefined {
+  if (!evaluateDowntime(rules, date).active) return undefined;
+  const start = new Date(date);
+  start.setSeconds(0, 0);
+  for (let step = 1; step <= 8 * DAY_MINUTES; step++) {
+    const candidate = new Date(start.getTime() + step * MINUTE_MS);
+    if (!evaluateDowntime(rules, candidate).active) return candidate.getTime();
+  }
+  return undefined;
+}
